@@ -1,4 +1,4 @@
-import { Car, MapPin, DollarSign, Image } from "lucide-react";
+import { Car, MapPin, DollarSign, MessageSquare } from "lucide-react";
 import { MileageEntry } from "@/types/mileage";
 
 interface StatsCardsProps {
@@ -10,7 +10,7 @@ const StatsCards = ({ entries, startMileage }: StatsCardsProps) => {
   const totalJobs = entries.length;
   const totalDistance = entries.reduce((acc, e) => acc + (e.distance || 0), 0);
   const totalAmount = entries.reduce((acc, e) => acc + (e.amountPaid || 0), 0);
-  const processedImages = entries.filter(e => e.status === 'processed').length;
+  const processedMessages = entries.filter(e => e.status === 'processed').length;
 
   const stats = [
     {
@@ -21,8 +21,8 @@ const StatsCards = ({ entries, startMileage }: StatsCardsProps) => {
       bgColor: "bg-primary/10",
     },
     {
-      label: "Distance (km)",
-      value: totalDistance,
+      label: "Total Distance",
+      value: `${totalDistance} km`,
       icon: MapPin,
       color: "text-success",
       bgColor: "bg-success/10",
@@ -35,9 +35,9 @@ const StatsCards = ({ entries, startMileage }: StatsCardsProps) => {
       bgColor: "bg-warning/10",
     },
     {
-      label: "Images Processed",
-      value: processedImages,
-      icon: Image,
+      label: "Scanned Entries",
+      value: processedMessages,
+      icon: MessageSquare,
       color: "text-primary",
       bgColor: "bg-primary/10",
     },
