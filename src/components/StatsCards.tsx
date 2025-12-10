@@ -1,16 +1,17 @@
-import { Car, MapPin, DollarSign, MessageSquare } from "lucide-react";
-import { MileageEntry } from "@/types/mileage";
+import { Car, MapPin, DollarSign, Fuel } from "lucide-react";
+import { MileageEntry, FuelData } from "@/types/mileage";
 
 interface StatsCardsProps {
   entries: MileageEntry[];
   startMileage: number | null;
+  fuelData: FuelData;
 }
 
-const StatsCards = ({ entries, startMileage }: StatsCardsProps) => {
+const StatsCards = ({ entries, startMileage, fuelData }: StatsCardsProps) => {
   const totalJobs = entries.length;
   const totalDistance = entries.reduce((acc, e) => acc + (e.distance || 0), 0);
-  const totalAmount = entries.reduce((acc, e) => acc + (e.amountPaid || 0), 0);
-  const processedMessages = entries.filter(e => e.status === 'processed').length;
+  const amountEarned = fuelData.amountEarned || 0;
+  const totalFuelCost = fuelData.totalCost || 0;
 
   const stats = [
     {
@@ -22,24 +23,24 @@ const StatsCards = ({ entries, startMileage }: StatsCardsProps) => {
     },
     {
       label: "Total Distance",
-      value: `${totalDistance} km`,
+      value: `${totalDistance.toLocaleString()} km`,
       icon: MapPin,
       color: "text-success",
       bgColor: "bg-success/10",
     },
     {
-      label: "Amount Paid",
-      value: `KES ${totalAmount.toLocaleString()}`,
+      label: "Amount Earned",
+      value: `KES ${amountEarned.toLocaleString()}`,
       icon: DollarSign,
       color: "text-warning",
       bgColor: "bg-warning/10",
     },
     {
-      label: "Scanned Entries",
-      value: processedMessages,
-      icon: MessageSquare,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
+      label: "Fuel Cost",
+      value: `KES ${totalFuelCost.toLocaleString()}`,
+      icon: Fuel,
+      color: "text-destructive",
+      bgColor: "bg-destructive/10",
     },
   ];
 
