@@ -1,6 +1,6 @@
 import Header from "@/components/Header";
 import StatsCards from "@/components/StatsCards";
-import ImageUploader from "@/components/ImageUploader";
+import MessageParser from "@/components/MessageParser";
 import MileageTable from "@/components/MileageTable";
 import ExportPanel from "@/components/ExportPanel";
 import QuickEntryForm from "@/components/QuickEntryForm";
@@ -11,10 +11,12 @@ const Index = () => {
   const {
     entries,
     startMileage,
+    setStartMileage,
     addEntry,
-    addFromImage,
+    addFromMessages,
     updateEntry,
     deleteEntry,
+    clearEntries,
     getLastMileage,
   } = useMileageEntries();
 
@@ -36,11 +38,11 @@ const Index = () => {
         {/* Hero Section */}
         <div className="text-center space-y-4 animate-fade-in">
           <h1 className="text-3xl lg:text-4xl font-bold">
-            <span className="gradient-text">Mileage Tracking</span>
-            <span className="text-foreground"> Made Simple</span>
+            <span className="gradient-text">WhatsApp Mileage</span>
+            <span className="text-foreground"> Scanner</span>
           </h1>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Upload meter images, extract readings automatically, and export to Google Sheets in seconds.
+            Paste WhatsApp messages, extract locations & mileage readings, and export to Google Sheets.
           </p>
         </div>
 
@@ -49,12 +51,14 @@ const Index = () => {
 
         {/* Main Grid */}
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column - Upload & Quick Entry */}
+          {/* Left Column - Parser & Quick Entry */}
           <div className="space-y-4">
-            <ImageUploader onImageProcessed={addFromImage} />
+            <MessageParser onMessagesParsed={addFromMessages} />
             <QuickEntryForm 
               onAddEntry={addEntry} 
-              lastMileage={getLastMileage()} 
+              lastMileage={getLastMileage()}
+              startMileage={startMileage}
+              onStartMileageChange={setStartMileage}
             />
             <ExportPanel 
               entries={entries} 
@@ -69,6 +73,7 @@ const Index = () => {
               entries={entries}
               onUpdateEntry={updateEntry}
               onDeleteEntry={deleteEntry}
+              onClearAll={clearEntries}
             />
           </div>
         </div>
