@@ -4,21 +4,29 @@ import MessageParser from "@/components/MessageParser";
 import MileageTable from "@/components/MileageTable";
 import ExportPanel from "@/components/ExportPanel";
 import QuickEntryForm from "@/components/QuickEntryForm";
-import { useMileageEntries } from "@/hooks/useMileageEntries";
+import FuelDataUploader from "@/components/FuelDataUploader";
+import MonthSelector from "@/components/MonthSelector";
+import { useMonthlyData } from "@/hooks/useMonthlyData";
 import { Toaster } from "sonner";
 
 const Index = () => {
   const {
+    selectedMonth,
+    setSelectedMonth,
     entries,
     startMileage,
+    totalJobs,
+    totalDistance,
+    fuelData,
     setStartMileage,
     addEntry,
     addFromMessages,
     updateEntry,
     deleteEntry,
     clearEntries,
+    setFuelData,
     getLastMileage,
-  } = useMileageEntries();
+  } = useMonthlyData();
 
   return (
     <div className="min-h-screen bg-background">
@@ -42,12 +50,18 @@ const Index = () => {
             <span className="text-foreground"> Scanner</span>
           </h1>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Paste WhatsApp messages, extract locations & mileage readings, and export to Google Sheets.
+            Track monthly mileage, fuel costs, and export to Google Sheets.
           </p>
         </div>
 
+        {/* Month Selector */}
+        <MonthSelector 
+          selectedMonth={selectedMonth} 
+          onMonthChange={setSelectedMonth} 
+        />
+
         {/* Stats */}
-        <StatsCards entries={entries} startMileage={startMileage} />
+        <StatsCards entries={entries} startMileage={startMileage} fuelData={fuelData} />
 
         {/* Main Grid */}
         <div className="grid lg:grid-cols-3 gap-6">
@@ -59,11 +73,18 @@ const Index = () => {
               lastMileage={getLastMileage()}
               startMileage={startMileage}
               onStartMileageChange={setStartMileage}
+              totalJobs={totalJobs}
+              totalDistance={totalDistance}
+            />
+            <FuelDataUploader 
+              onFuelDataLoaded={setFuelData}
+              fuelData={fuelData}
             />
             <ExportPanel 
               entries={entries} 
-              date={new Date()} 
-              startMileage={startMileage} 
+              date={selectedMonth} 
+              startMileage={startMileage}
+              fuelData={fuelData}
             />
           </div>
 

@@ -1,20 +1,24 @@
 import { Download, FileSpreadsheet, Copy, Check } from "lucide-react";
 import { Button } from "./ui/button";
-import { MileageEntry } from "@/types/mileage";
+import { MileageEntry, FuelData } from "@/types/mileage";
 import { useState } from "react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface ExportPanelProps {
   entries: MileageEntry[];
   date: Date;
   startMileage: number | null;
+  fuelData: FuelData;
 }
 
-const ExportPanel = ({ entries, date, startMileage }: ExportPanelProps) => {
+const ExportPanel = ({ entries, date, startMileage, fuelData }: ExportPanelProps) => {
   const [copied, setCopied] = useState(false);
 
   const generateCSV = () => {
-    const headers = ['Job #', 'Start', 'End', 'Mileage Start', 'Mileage End', 'Distance', 'Total Distance', 'Amount Paid'];
+    const headers = [
+      'Job #', 'Start', 'End', 'Mileage Start', 'Mileage End', 'Distance'
+    ];
     const rows = entries.map(e => [
       e.jobNumber,
       e.start,
@@ -22,11 +26,33 @@ const ExportPanel = ({ entries, date, startMileage }: ExportPanelProps) => {
       e.mileageStart,
       e.mileageEnd,
       e.distance,
-      e.totalDistance,
-      e.amountPaid
     ]);
     
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    // Add totals row
+    const totalDistance = entries.reduce((sum, e) => sum + (e.distance || 0), 0);
+    rows.push(['', '', 'TOTAL', '', '', totalDistance]);
+    
+    // Add fuel data section
+    const fuelSection = [
+      [''],
+      ['FUEL & EXPENSES'],
+      ['Fuel CF', fuelData.fuelCf || ''],
+      ['Diesel Amount (L)', fuelData.dieselAmount || ''],
+      ['Diesel Cost', fuelData.dieselCost || ''],
+      ['Petrol Amount (L)', fuelData.petrolAmount || ''],
+      ['Petrol Cost', fuelData.petrolCost || ''],
+      ['Total Liters Used', fuelData.totalLitersUsed || ''],
+      ['Total Cost', fuelData.totalCost || ''],
+      ['Total Expense', fuelData.totalExpense || ''],
+      ['Fuel Balance', fuelData.fuelBalance || ''],
+      ['Amount Earned', fuelData.amountEarned || ''],
+    ];
+    
+    const csv = [
+      headers.join(','), 
+      ...rows.map(r => r.join(',')),
+      ...fuelSection.map(r => r.join(','))
+    ].join('\n');
     return csv;
   };
 
@@ -36,7 +62,7 @@ const ExportPanel = ({ entries, date, startMileage }: ExportPanelProps) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `mileage-${date.toISOString().split('T')[0]}.csv`;
+    a.download = `mileage-${format(date, 'yyyy-MM')}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('CSV downloaded successfully');
@@ -50,6 +76,8 @@ const ExportPanel = ({ entries, date, startMileage }: ExportPanelProps) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const totalDistance = entries.reduce((sum, e) => sum + (e.distance || 0), 0);
+
   return (
     <div className="glass-card p-6 animate-slide-up" style={{ animationDelay: '0.4s' }}>
       <div className="flex items-center gap-2 mb-4">
@@ -62,10 +90,10 @@ const ExportPanel = ({ entries, date, startMileage }: ExportPanelProps) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-foreground">
-                {date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                {format(date, 'MMMM yyyy')}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                {entries.length} entries • Start: {startMileage?.toLocaleString() || '—'} km
+                {entries.length} jobs • {totalDistance.toLocaleString()} km
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -82,7 +110,7 @@ const ExportPanel = ({ entries, date, startMileage }: ExportPanelProps) => {
         </div>
 
         <p className="text-xs text-muted-foreground text-center">
-          Copy data and paste directly into Google Sheets
+          Includes mileage entries + fuel/expense data
         </p>
       </div>
     </div>
