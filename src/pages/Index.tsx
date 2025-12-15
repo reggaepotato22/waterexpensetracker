@@ -1,103 +1,101 @@
-import Header from "@/components/Header";
-import StatsCards from "@/components/StatsCards";
-import MessageParser from "@/components/MessageParser";
-import MileageTable from "@/components/MileageTable";
-import ExportPanel from "@/components/ExportPanel";
-import QuickEntryForm from "@/components/QuickEntryForm";
-import FuelDataUploader from "@/components/FuelDataUploader";
-import MonthSelector from "@/components/MonthSelector";
-import { useMonthlyData } from "@/hooks/useMonthlyData";
-import { Toaster } from "sonner";
+import Header from '@/components/Header';
+import MonthSelector from '@/components/MonthSelector';
+import { MileageEntryForm } from '@/components/MileageEntryForm';
+import FuelDataUploader from '@/components/FuelDataUploader';
+import { MisdemeanorEntry } from '@/components/MisdemeanorEntry';
+import StatsCards from '@/components/StatsCards';
+import { MonthlyCharts } from '@/components/MonthlyCharts';
+import { useMonthlyData } from '@/hooks/useMonthlyData';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { parse, format } from 'date-fns';
 
 const Index = () => {
   const {
-    selectedMonth,
-    setSelectedMonth,
-    entries,
-    startMileage,
-    totalJobs,
-    totalDistance,
-    fuelData,
-    setStartMileage,
-    addEntry,
-    addFromMessages,
-    updateEntry,
-    deleteEntry,
-    clearEntries,
+    currentMonth,
+    setCurrentMonth,
+    currentLog,
+    setMileage,
     setFuelData,
-    getLastMileage,
+    setTotalJobs,
+    addMisdemeanor,
+    updateMisdemeanor,
+    deleteMisdemeanor,
+    isLoading,
   } = useMonthlyData();
+
+  // Convert string month to Date for MonthSelector
+  const selectedDate = parse(currentMonth, 'yyyy-MM', new Date());
+  const handleMonthChange = (date: Date) => {
+    setCurrentMonth(format(date, 'yyyy-MM'));
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      <Toaster 
-        position="top-right" 
-        toastOptions={{
-          style: {
-            background: 'hsl(222 47% 8%)',
-            border: '1px solid hsl(222 30% 18%)',
-            color: 'hsl(210 40% 98%)',
-          },
-        }}
-      />
       <Header />
       
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Hero Section */}
-        <div className="text-center space-y-4 animate-fade-in">
-          <h1 className="text-3xl lg:text-4xl font-bold">
-            <span className="gradient-text">WhatsApp Mileage</span>
-            <span className="text-foreground"> Scanner</span>
-          </h1>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            Track monthly mileage, fuel costs, and export to Google Sheets.
-          </p>
-        </div>
-
-        {/* Month Selector */}
+      <main className="container mx-auto px-4 py-6 space-y-6">
         <MonthSelector 
-          selectedMonth={selectedMonth} 
-          onMonthChange={setSelectedMonth} 
+          selectedMonth={selectedDate} 
+          onMonthChange={handleMonthChange} 
         />
 
-        {/* Stats */}
-        <StatsCards entries={entries} startMileage={startMileage} fuelData={fuelData} />
+        <StatsCards 
+          entries={currentLog.entries} 
+          startMileage={currentLog.startMileage} 
+          fuelData={currentLog.fuelData} 
+        />
 
-        {/* Main Grid */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column - Parser & Quick Entry */}
-          <div className="space-y-4">
-            <MessageParser onMessagesParsed={addFromMessages} />
-            <QuickEntryForm 
-              onAddEntry={addEntry} 
-              lastMileage={getLastMileage()}
-              startMileage={startMileage}
-              onStartMileageChange={setStartMileage}
-              totalJobs={totalJobs}
-              totalDistance={totalDistance}
+        <Tabs defaultValue="entry" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="entry">Data Entry</TabsTrigger>
+            <TabsTrigger value="fuel">Fuel & Expenses</TabsTrigger>
+            <TabsTrigger value="misdemeanors">Misdemeanors</TabsTrigger>
+            <TabsTrigger value="charts">Charts</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="entry" className="mt-6">
+            <MileageEntryForm
+              startMileage={currentLog.startMileage}
+              endMileage={currentLog.endMileage}
+              totalJobs={currentLog.totalJobs}
+              onSave={(start, end, jobs) => {
+                setMileage(start, end);
+                setTotalJobs(jobs);
+              }}
             />
-            <FuelDataUploader 
+          </TabsContent>
+
+          <TabsContent value="fuel" className="mt-6">
+            <FuelDataUploader
+              fuelData={currentLog.fuelData}
               onFuelDataLoaded={setFuelData}
-              fuelData={fuelData}
             />
-            <ExportPanel 
-              entries={entries} 
-              date={selectedMonth} 
-              startMileage={startMileage}
-              fuelData={fuelData}
-            />
-          </div>
+          </TabsContent>
 
-          {/* Right Column - Table */}
-          <div className="lg:col-span-2">
-            <MileageTable 
-              entries={entries}
-              onUpdateEntry={updateEntry}
-              onDeleteEntry={deleteEntry}
-              onClearAll={clearEntries}
+          <TabsContent value="misdemeanors" className="mt-6">
+            <MisdemeanorEntry
+              misdemeanors={currentLog.misdemeanors || []}
+              onAdd={addMisdemeanor}
+              onUpdate={updateMisdemeanor}
+              onDelete={deleteMisdemeanor}
             />
-          </div>
-        </div>
+          </TabsContent>
+
+          <TabsContent value="charts" className="mt-6">
+            <MonthlyCharts 
+              currentLog={currentLog} 
+              allLogs={{ [currentMonth]: currentLog }}
+            />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

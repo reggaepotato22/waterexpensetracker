@@ -8,9 +8,17 @@ export interface MileageEntry {
   distance: number | null;
   totalDistance: number | null;
   amountPaid: number | null;
-  imageUrl?: string;
   timestamp: Date;
   status: 'pending' | 'processed' | 'manual';
+}
+
+export interface Misdemeanor {
+  id: string;
+  date: Date;
+  type: string;
+  description: string;
+  fine: number | null;
+  resolved: boolean;
 }
 
 export interface FuelData {
@@ -35,4 +43,5 @@ export interface MonthlyLog {
   totalDistance: number;
   entries: MileageEntry[];
   fuelData: FuelData;
+  misdemeanors: Misdemeanor[];
 }
