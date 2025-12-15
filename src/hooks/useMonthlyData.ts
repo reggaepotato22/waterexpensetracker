@@ -85,6 +85,7 @@ export const useMonthlyData = () => {
     end: string;
     mileageStart: number;
     mileageEnd: number;
+    amountPaid?: number | null;
     status?: MileageEntry['status'];
   }) => {
     const distance = data.mileageEnd - data.mileageStart;
@@ -97,7 +98,7 @@ export const useMonthlyData = () => {
       mileageEnd: data.mileageEnd,
       distance: distance,
       totalDistance: null,
-      amountPaid: null,
+      amountPaid: data.amountPaid ?? null,
       timestamp: new Date(),
       status: data.status || 'manual',
     };

@@ -1,7 +1,7 @@
 import Header from '@/components/Header';
 import MonthSelector from '@/components/MonthSelector';
-import { MileageEntryForm } from '@/components/MileageEntryForm';
-import FuelDataUploader from '@/components/FuelDataUploader';
+import { JobEntryTable } from '@/components/JobEntryTable';
+import { FuelExpenseForm } from '@/components/FuelExpenseForm';
 import { MisdemeanorEntry } from '@/components/MisdemeanorEntry';
 import StatsCards from '@/components/StatsCards';
 import { MonthlyCharts } from '@/components/MonthlyCharts';
@@ -14,16 +14,17 @@ const Index = () => {
     currentMonth,
     setCurrentMonth,
     currentLog,
-    setMileage,
     setFuelData,
-    setTotalJobs,
+    addEntry,
+    updateEntry,
+    deleteEntry,
+    setStartMileage,
     addMisdemeanor,
     updateMisdemeanor,
     deleteMisdemeanor,
     isLoading,
   } = useMonthlyData();
 
-  // Convert string month to Date for MonthSelector
   const selectedDate = parse(currentMonth, 'yyyy-MM', new Date());
   const handleMonthChange = (date: Date) => {
     setCurrentMonth(format(date, 'yyyy-MM'));
@@ -53,30 +54,35 @@ const Index = () => {
           fuelData={currentLog.fuelData} 
         />
 
-        <Tabs defaultValue="entry" className="w-full">
+        <Tabs defaultValue="jobs" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="entry">Data Entry</TabsTrigger>
+            <TabsTrigger value="jobs">Job Entries</TabsTrigger>
             <TabsTrigger value="fuel">Fuel & Expenses</TabsTrigger>
             <TabsTrigger value="misdemeanors">Misdemeanors</TabsTrigger>
             <TabsTrigger value="charts">Charts</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="entry" className="mt-6">
-            <MileageEntryForm
+          <TabsContent value="jobs" className="mt-6">
+            <JobEntryTable
+              entries={currentLog.entries}
               startMileage={currentLog.startMileage}
-              endMileage={currentLog.endMileage}
-              totalJobs={currentLog.totalJobs}
-              onSave={(start, end, jobs) => {
-                setMileage(start, end);
-                setTotalJobs(jobs);
-              }}
+              onAddEntry={(entry) => addEntry({
+                start: entry.start,
+                end: entry.end,
+                mileageStart: entry.mileageStart || 0,
+                mileageEnd: entry.mileageEnd || 0,
+                amountPaid: entry.amountPaid,
+              })}
+              onUpdateEntry={updateEntry}
+              onDeleteEntry={deleteEntry}
+              onSetStartMileage={setStartMileage}
             />
           </TabsContent>
 
           <TabsContent value="fuel" className="mt-6">
-            <FuelDataUploader
+            <FuelExpenseForm
               fuelData={currentLog.fuelData}
-              onFuelDataLoaded={setFuelData}
+              onSave={setFuelData}
             />
           </TabsContent>
 
