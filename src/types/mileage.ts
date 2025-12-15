@@ -1,6 +1,8 @@
 export interface MileageEntry {
   id: string;
   jobNumber: number;
+  orderNumber?: string;
+  customer?: string;
   start: string;
   end: string;
   mileageStart: number | null;
@@ -8,6 +10,9 @@ export interface MileageEntry {
   distance: number | null;
   totalDistance: number | null;
   amountPaid: number | null;
+  isWaterFill: boolean;
+  isParking: boolean;
+  date?: Date;
   timestamp: Date;
   status: 'pending' | 'processed' | 'manual';
 }
@@ -44,4 +49,18 @@ export interface MonthlyLog {
   entries: MileageEntry[];
   fuelData: FuelData;
   misdemeanors: Misdemeanor[];
+}
+
+export interface WaterFillSite {
+  id: string;
+  name: string;
+}
+
+export interface CSVDelivery {
+  key: string;
+  orderNumber: string;
+  date: string;
+  customer: string;
+  volume: number;
+  earning: number;
 }
