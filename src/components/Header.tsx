@@ -10,7 +10,7 @@ const Header = () => {
             <Car className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-foreground">MileageSync</h1>
+            <h1 className="text-lg font-semibold text-foreground">WaterTracker</h1>
             <p className="text-xs text-muted-foreground">Meter Reading Automation</p>
           </div>
         </div>
