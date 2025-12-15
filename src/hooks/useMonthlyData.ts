@@ -1,8 +1,9 @@
-import { useState, useCallback, useMemo } from 'react';
-import { MileageEntry, FuelData, MonthlyLog } from '@/types/mileage';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { MileageEntry, FuelData, MonthlyLog, Misdemeanor } from '@/types/mileage';
 import { format } from 'date-fns';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
+const STORAGE_KEY = 'mileage-monthly-logs';
 
 const emptyFuelData: FuelData = {
   fuelCf: null,
@@ -17,6 +18,18 @@ const emptyFuelData: FuelData = {
   amountEarned: null,
 };
 
+const createEmptyLog = (monthKey: string): MonthlyLog => ({
+  id: generateId(),
+  month: monthKey,
+  startMileage: null,
+  endMileage: null,
+  totalJobs: 0,
+  totalDistance: 0,
+  entries: [],
+  fuelData: { ...emptyFuelData },
+  misdemeanors: [],
+});
+
 interface ParsedMessage {
   timestamp: Date;
   location: string;
@@ -26,32 +39,42 @@ interface ParsedMessage {
 
 export const useMonthlyData = () => {
   const [monthlyLogs, setMonthlyLogs] = useState<Record<string, MonthlyLog>>({});
-  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [currentMonth, setCurrentMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
+  const [isLoading, setIsLoading] = useState(true);
 
-  const currentMonthKey = useMemo(() => format(selectedMonth, 'yyyy-MM'), [selectedMonth]);
+  // Load from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        setMonthlyLogs(JSON.parse(stored));
+      } catch (e) {
+        console.error('Failed to parse stored data:', e);
+      }
+    }
+    setIsLoading(false);
+  }, []);
+
+  // Save to localStorage on changes
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(monthlyLogs));
+    }
+  }, [monthlyLogs, isLoading]);
 
   const currentLog = useMemo((): MonthlyLog => {
-    return monthlyLogs[currentMonthKey] || {
-      id: generateId(),
-      month: currentMonthKey,
-      startMileage: 72739,
-      endMileage: null,
-      totalJobs: 0,
-      totalDistance: 0,
-      entries: [],
-      fuelData: { ...emptyFuelData },
-    };
-  }, [monthlyLogs, currentMonthKey]);
+    return monthlyLogs[currentMonth] || createEmptyLog(currentMonth);
+  }, [monthlyLogs, currentMonth]);
 
   const updateCurrentLog = useCallback((updates: Partial<MonthlyLog>) => {
     setMonthlyLogs(prev => ({
       ...prev,
-      [currentMonthKey]: {
-        ...currentLog,
+      [currentMonth]: {
+        ...(prev[currentMonth] || createEmptyLog(currentMonth)),
         ...updates,
       },
     }));
-  }, [currentMonthKey, currentLog]);
+  }, [currentMonth]);
 
   const setStartMileage = useCallback((value: number) => {
     updateCurrentLog({ startMileage: value });
@@ -194,22 +217,64 @@ export const useMonthlyData = () => {
     return last?.mileageEnd || currentLog.startMileage;
   }, [currentLog]);
 
+  const setMileage = useCallback((start: number | null, end: number | null) => {
+    const distance = start && end ? end - start : 0;
+    updateCurrentLog({ 
+      startMileage: start, 
+      endMileage: end,
+      totalDistance: distance > 0 ? distance : currentLog.totalDistance,
+    });
+  }, [updateCurrentLog, currentLog.totalDistance]);
+
+  const setTotalJobs = useCallback((jobs: number) => {
+    updateCurrentLog({ totalJobs: jobs });
+  }, [updateCurrentLog]);
+
+  const addMisdemeanor = useCallback((misdemeanor: Omit<Misdemeanor, 'id'>) => {
+    const newMisdemeanors = [...(currentLog.misdemeanors || []), { ...misdemeanor, id: generateId() }];
+    updateCurrentLog({ misdemeanors: newMisdemeanors });
+  }, [currentLog.misdemeanors, updateCurrentLog]);
+
+  const updateMisdemeanor = useCallback((id: string, updates: Partial<Misdemeanor>) => {
+    const newMisdemeanors = (currentLog.misdemeanors || []).map(m => 
+      m.id === id ? { ...m, ...updates } : m
+    );
+    updateCurrentLog({ misdemeanors: newMisdemeanors });
+  }, [currentLog.misdemeanors, updateCurrentLog]);
+
+  const deleteMisdemeanor = useCallback((id: string) => {
+    const newMisdemeanors = (currentLog.misdemeanors || []).filter(m => m.id !== id);
+    updateCurrentLog({ misdemeanors: newMisdemeanors });
+  }, [currentLog.misdemeanors, updateCurrentLog]);
+
+  const getAllMonths = useCallback(() => {
+    return Object.keys(monthlyLogs).sort().reverse();
+  }, [monthlyLogs]);
+
   return {
-    selectedMonth,
-    setSelectedMonth,
+    currentMonth,
+    setCurrentMonth,
     currentLog,
+    isLoading,
     entries: currentLog.entries,
     startMileage: currentLog.startMileage,
     totalJobs: currentLog.totalJobs,
     totalDistance: currentLog.totalDistance,
     fuelData: currentLog.fuelData,
+    misdemeanors: currentLog.misdemeanors || [],
     setStartMileage,
+    setMileage,
+    setTotalJobs,
     addEntry,
     addFromMessages,
     updateEntry,
     deleteEntry,
     clearEntries,
     setFuelData,
+    addMisdemeanor,
+    updateMisdemeanor,
+    deleteMisdemeanor,
+    getAllMonths,
     getLastMileage,
   };
 };
