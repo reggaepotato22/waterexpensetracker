@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Fuel, DollarSign } from 'lucide-react';
+import { Fuel, Save } from 'lucide-react';
 import { FuelData } from '@/types/mileage';
 import { toast } from 'sonner';
 
@@ -31,21 +31,20 @@ export const FuelExpenseForm = ({ fuelData, onSave }: FuelExpenseFormProps) => {
     toast.success('Fuel & expense data saved');
   };
 
-  // Calculate totals automatically
   const calculatedTotalLiters = (formData.dieselAmount || 0) + (formData.petrolAmount || 0);
   const calculatedTotalCost = (formData.dieselCost || 0) + (formData.petrolCost || 0);
 
   const fields: { key: keyof FuelData; label: string; prefix?: string; suffix?: string }[] = [
     { key: 'fuelCf', label: 'Fuel CF' },
     { key: 'dieselAmount', label: 'Diesel Amount', suffix: 'L' },
-    { key: 'dieselCost', label: 'Diesel Cost', prefix: '$' },
+    { key: 'dieselCost', label: 'Diesel Cost', prefix: 'KES' },
     { key: 'petrolAmount', label: 'Petrol Amount', suffix: 'L' },
-    { key: 'petrolCost', label: 'Petrol Cost', prefix: '$' },
+    { key: 'petrolCost', label: 'Petrol Cost', prefix: 'KES' },
     { key: 'totalLitersUsed', label: 'Total Liters Used', suffix: 'L' },
-    { key: 'totalCost', label: 'Total Cost', prefix: '$' },
-    { key: 'totalExpense', label: 'Total Expense', prefix: '$' },
-    { key: 'fuelBalance', label: 'Fuel Balance', prefix: '$' },
-    { key: 'amountEarned', label: 'Amount Earned', prefix: '$' },
+    { key: 'totalCost', label: 'Total Cost', prefix: 'KES' },
+    { key: 'totalExpense', label: 'Total Expense', prefix: 'KES' },
+    { key: 'fuelBalance', label: 'Fuel Balance', prefix: 'KES' },
+    { key: 'amountEarned', label: 'Amount Earned', prefix: 'KES' },
   ];
 
   return (
@@ -63,7 +62,7 @@ export const FuelExpenseForm = ({ fuelData, onSave }: FuelExpenseFormProps) => {
               <Label htmlFor={key} className="text-xs">{label}</Label>
               <div className="relative">
                 {prefix && (
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
                     {prefix}
                   </span>
                 )}
@@ -73,7 +72,7 @@ export const FuelExpenseForm = ({ fuelData, onSave }: FuelExpenseFormProps) => {
                   step="0.01"
                   value={formData[key] || ''}
                   onChange={(e) => handleChange(key, e.target.value)}
-                  className={prefix ? 'pl-7' : ''}
+                  className={prefix ? 'pl-12' : ''}
                   placeholder="0"
                 />
                 {suffix && (
@@ -87,14 +86,14 @@ export const FuelExpenseForm = ({ fuelData, onSave }: FuelExpenseFormProps) => {
         </div>
 
         {/* Auto-calculated hints */}
-        <div className="flex items-center gap-6 p-3 bg-muted rounded-lg text-sm">
+        <div className="flex items-center gap-6 p-3 bg-muted rounded-lg text-sm flex-wrap">
           <div>
             <span className="text-muted-foreground">Auto Total Liters:</span>
             <span className="ml-2 font-medium">{calculatedTotalLiters} L</span>
           </div>
           <div>
             <span className="text-muted-foreground">Auto Total Cost:</span>
-            <span className="ml-2 font-medium">${calculatedTotalCost}</span>
+            <span className="ml-2 font-medium">KES {calculatedTotalCost.toLocaleString()}</span>
           </div>
         </div>
 
@@ -105,21 +104,21 @@ export const FuelExpenseForm = ({ fuelData, onSave }: FuelExpenseFormProps) => {
             <div className="text-xs text-muted-foreground">Total Fuel</div>
           </div>
           <div className="p-4 bg-muted rounded-lg text-center">
-            <div className="text-2xl font-bold">${formData.totalCost || calculatedTotalCost}</div>
+            <div className="text-2xl font-bold">KES {(formData.totalCost || calculatedTotalCost).toLocaleString()}</div>
             <div className="text-xs text-muted-foreground">Total Cost</div>
           </div>
           <div className="p-4 bg-muted rounded-lg text-center">
-            <div className="text-2xl font-bold">${formData.totalExpense || 0}</div>
+            <div className="text-2xl font-bold">KES {(formData.totalExpense || 0).toLocaleString()}</div>
             <div className="text-xs text-muted-foreground">Total Expense</div>
           </div>
           <div className="p-4 bg-primary/10 rounded-lg text-center border border-primary/20">
-            <div className="text-2xl font-bold text-primary">${formData.amountEarned || 0}</div>
+            <div className="text-2xl font-bold text-primary">KES {(formData.amountEarned || 0).toLocaleString()}</div>
             <div className="text-xs text-muted-foreground">Amount Earned</div>
           </div>
         </div>
 
         <Button onClick={handleSave} className="w-full">
-          <DollarSign className="w-4 h-4 mr-2" />
+          <Save className="w-4 h-4 mr-2" />
           Save Fuel & Expense Data
         </Button>
       </CardContent>
