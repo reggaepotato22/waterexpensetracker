@@ -13,6 +13,8 @@ import { MonthlyCharts } from '@/components/MonthlyCharts';
 import { MonthlyAnalysis } from '@/components/MonthlyAnalysis';
 import { CSVComparison } from '@/components/CSVComparison';
 import { MonthlyHistory } from '@/components/MonthlyHistory';
+import { NewDayDialog } from '@/components/NewDayDialog';
+import { SettingsDialog } from '@/components/SettingsDialog';
 import { useMonthlyData } from '@/hooks/useMonthlyData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -42,9 +44,35 @@ const Index = () => {
     user,
   } = useMonthlyData();
 
+  const [showNewDayDialog, setShowNewDayDialog] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
+  const [showSettingsOnStartup, setShowSettingsOnStartup] = useState<boolean>(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('watertracker-hide-settings');
+    if (stored === 'true') {
+      setShowSettingsOnStartup(false);
+    } else {
+      setShowSettingsDialog(true);
+    }
+  }, []);
+
+  const handleShowOnStartupChange = (value: boolean) => {
+    setShowSettingsOnStartup(value);
+    localStorage.setItem('watertracker-hide-settings', value ? 'false' : 'true');
+  };
+
   const selectedDate = parse(currentMonth, 'yyyy-MM', new Date());
   const handleMonthChange = (date: Date) => {
     setCurrentMonth(format(date, 'yyyy-MM'));
+    setSelectedDay(date);
+  };
+
+  const handleCreateNewDay = (date: Date) => {
+    setCurrentMonth(format(date, 'yyyy-MM'));
+    setSelectedDay(date);
+    toast.success(`Switched to ${format(date, 'MMMM yyyy')} for new day entries`);
   };
 
   const handleSignOut = async () => {
@@ -64,7 +92,10 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header
+        onCreateNewDay={() => setShowNewDayDialog(true)}
+        onOpenSettings={() => setShowSettingsDialog(true)}
+      />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Auth Status Bar */}
@@ -106,15 +137,31 @@ const Index = () => {
         />
 
         <Tabs defaultValue="jobs" className="w-full">
-          <TabsList className="grid w-full grid-cols-8 h-12">
-            <TabsTrigger value="jobs" className="text-sm">Jobs</TabsTrigger>
-            <TabsTrigger value="fuel" className="text-sm">Fuel & Expenses</TabsTrigger>
-            <TabsTrigger value="misdemeanors" className="text-sm">Misdemeanors</TabsTrigger>
-            <TabsTrigger value="charts" className="text-sm">Charts</TabsTrigger>
-            <TabsTrigger value="analysis" className="text-sm">Analysis</TabsTrigger>
-            <TabsTrigger value="compare" className="text-sm">Compare CSV</TabsTrigger>
-            <TabsTrigger value="history" className="text-sm">Monthly Folder</TabsTrigger>
-            <TabsTrigger value="export" className="text-sm">Export</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1 h-auto">
+            <TabsTrigger value="jobs" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Jobs
+            </TabsTrigger>
+            <TabsTrigger value="fuel" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Fuel & Expenses
+            </TabsTrigger>
+            <TabsTrigger value="misdemeanors" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Misdemeanors
+            </TabsTrigger>
+            <TabsTrigger value="charts" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Charts
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Analysis
+            </TabsTrigger>
+            <TabsTrigger value="compare" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Compare CSV
+            </TabsTrigger>
+            <TabsTrigger value="history" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Monthly Folder
+            </TabsTrigger>
+            <TabsTrigger value="export" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Export
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="jobs" className="mt-6 space-y-6">
@@ -124,7 +171,15 @@ const Index = () => {
               onDelete={deleteWaterFillSite}
             />
             <JobEntryTable
-              entries={currentLog.entries}
+              entries={
+                selectedDay
+                  ? currentLog.entries.filter((e) =>
+                      e.date
+                        ? format(e.date, 'yyyy-MM-dd') === format(selectedDay, 'yyyy-MM-dd')
+                        : true
+                    )
+                  : currentLog.entries
+              }
               startMileage={currentLog.startMileage}
               waterFillSites={waterFillSites}
               onAddEntry={(entry) => addEntry({
@@ -137,6 +192,7 @@ const Index = () => {
                 customer: entry.customer,
                 isWaterFill: entry.isWaterFill,
                 isParking: entry.isParking,
+                date: selectedDay || new Date(),
               })}
               onUpdateEntry={updateEntry}
               onDeleteEntry={deleteEntry}
@@ -189,6 +245,22 @@ const Index = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* New Day Sheet Dialog */}
+      <NewDayDialog
+        open={showNewDayDialog}
+        onOpenChange={setShowNewDayDialog}
+        onCreate={handleCreateNewDay}
+        initialDate={selectedDate}
+      />
+
+      {/* Settings Dialog */}
+      <SettingsDialog
+        open={showSettingsDialog}
+        onOpenChange={setShowSettingsDialog}
+        showOnStartup={showSettingsOnStartup}
+        onShowOnStartupChange={handleShowOnStartupChange}
+      />
     </div>
   );
 };
