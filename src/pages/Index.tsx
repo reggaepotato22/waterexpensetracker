@@ -12,6 +12,7 @@ import Dashboard from '@/components/Dashboard';
 import { MonthlyCharts } from '@/components/MonthlyCharts';
 import { MonthlyAnalysis } from '@/components/MonthlyAnalysis';
 import { CSVComparison } from '@/components/CSVComparison';
+import { MonthlyHistory } from '@/components/MonthlyHistory';
 import { useMonthlyData } from '@/hooks/useMonthlyData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import { toast } from 'sonner';
 const Index = () => {
   const navigate = useNavigate();
   const {
+    monthlyLogs,
     currentMonth,
     setCurrentMonth,
     currentLog,
@@ -104,13 +106,14 @@ const Index = () => {
         />
 
         <Tabs defaultValue="jobs" className="w-full">
-          <TabsList className="grid w-full grid-cols-7 h-12">
+          <TabsList className="grid w-full grid-cols-8 h-12">
             <TabsTrigger value="jobs" className="text-sm">Jobs</TabsTrigger>
             <TabsTrigger value="fuel" className="text-sm">Fuel & Expenses</TabsTrigger>
             <TabsTrigger value="misdemeanors" className="text-sm">Misdemeanors</TabsTrigger>
             <TabsTrigger value="charts" className="text-sm">Charts</TabsTrigger>
             <TabsTrigger value="analysis" className="text-sm">Analysis</TabsTrigger>
             <TabsTrigger value="compare" className="text-sm">Compare CSV</TabsTrigger>
+            <TabsTrigger value="history" className="text-sm">Monthly Folder</TabsTrigger>
             <TabsTrigger value="export" className="text-sm">Export</TabsTrigger>
           </TabsList>
 
@@ -171,6 +174,10 @@ const Index = () => {
 
           <TabsContent value="compare" className="mt-6">
             <CSVComparison entries={currentLog.entries} />
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-6">
+            <MonthlyHistory logs={monthlyLogs} />
           </TabsContent>
 
           <TabsContent value="export" className="mt-6">

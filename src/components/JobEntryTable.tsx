@@ -319,8 +319,8 @@ export const JobEntryTable = ({
           </div>
 
           {/* Entries Table */}
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <Table>
+          <div className="overflow-x-auto rounded-lg border border-border lg:overflow-visible">
+            <Table className="min-w-[900px] text-sm">
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-14 text-center font-semibold">#</TableHead>
@@ -349,12 +349,12 @@ export const JobEntryTable = ({
 
                   return (
                     <TableRow key={entry.id} className={getRowStyle(entry)}>
-                      <TableCell className="font-bold text-primary text-center text-base">{entry.jobNumber}</TableCell>
+                      <TableCell className="font-bold text-primary text-center">{entry.jobNumber}</TableCell>
                       <TableCell>
                         <Input
                           value={entry.orderNumber || ''}
                           onChange={(e) => onUpdateEntry(entry.id, { orderNumber: e.target.value })}
-                          className="h-10 text-base"
+                          className="h-10 text-sm sm:text-base"
                           placeholder="Order #"
                         />
                       </TableCell>
@@ -362,14 +362,14 @@ export const JobEntryTable = ({
                         <Input
                           value={entry.start}
                           onChange={(e) => onUpdateEntry(entry.id, { start: e.target.value })}
-                          className="h-10 text-base min-w-[120px]"
+                          className="h-10 text-sm sm:text-base min-w-[120px]"
                         />
                       </TableCell>
                       <TableCell>
                         <Input
                           value={entry.end}
                           onChange={(e) => onUpdateEntry(entry.id, { end: e.target.value })}
-                          className="h-10 text-base min-w-[120px]"
+                          className="h-10 text-sm sm:text-base min-w-[120px]"
                         />
                       </TableCell>
                       <TableCell>
@@ -377,7 +377,7 @@ export const JobEntryTable = ({
                           type="number"
                           value={entry.mileageStart || ''}
                           onChange={(e) => onUpdateEntry(entry.id, { mileageStart: Number(e.target.value) })}
-                          className="h-10 text-base w-24"
+                          className="h-10 text-sm sm:text-base w-24"
                         />
                       </TableCell>
                       <TableCell>
@@ -385,17 +385,17 @@ export const JobEntryTable = ({
                           type="number"
                           value={entry.mileageEnd || ''}
                           onChange={(e) => onUpdateEntry(entry.id, { mileageEnd: Number(e.target.value) })}
-                          className="h-10 text-base w-24"
+                          className="h-10 text-sm sm:text-base w-24"
                         />
                       </TableCell>
-                      <TableCell className="font-mono text-base text-center">{entry.distance}</TableCell>
-                      <TableCell className="font-mono text-base text-center text-muted-foreground">{runningTotal}</TableCell>
+                      <TableCell className="font-mono text-center">{entry.distance}</TableCell>
+                      <TableCell className="font-mono text-center text-muted-foreground">{runningTotal}</TableCell>
                       <TableCell>
                         <Input
                           type="number"
                           value={entry.amountPaid || ''}
                           onChange={(e) => onUpdateEntry(entry.id, { amountPaid: e.target.value ? Number(e.target.value) : null })}
-                          className="h-10 text-base w-28"
+                          className="h-10 text-sm sm:text-base w-28"
                           placeholder="0"
                         />
                       </TableCell>
@@ -429,7 +429,7 @@ export const JobEntryTable = ({
                 <TableRow className="bg-muted/30">
                   <TableCell className="text-muted-foreground text-center font-medium">{entries.length + 1}</TableCell>
                   <TableCell>
-                    <Input
+                              <Input
                       placeholder="Order #"
                       value={newEntry.orderNumber}
                       onChange={(e) => setNewEntry(prev => ({ ...prev, orderNumber: e.target.value }))}
@@ -449,7 +449,7 @@ export const JobEntryTable = ({
                         className="h-10 text-base min-w-[120px]"
                       />
                       {showStartSuggestions && filteredStartPlaces.length > 0 && newEntry.start && (
-                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                           {filteredStartPlaces.slice(0, 5).map(place => (
                             <button
                               key={place}
@@ -475,7 +475,7 @@ export const JobEntryTable = ({
                         className="h-10 text-base min-w-[120px]"
                       />
                       {showEndSuggestions && filteredEndPlaces.length > 0 && newEntry.end && (
-                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                           {filteredEndPlaces.slice(0, 5).map(place => (
                             <button
                               key={place}
@@ -496,7 +496,7 @@ export const JobEntryTable = ({
                       value={newEntry.mileageStart}
                       onChange={(e) => setNewEntry(prev => ({ ...prev, mileageStart: e.target.value }))}
                       onKeyDown={handleKeyDown}
-                      className="h-10 text-base w-24"
+                      className="h-10 text-sm sm:text-base w-24"
                     />
                   </TableCell>
                   <TableCell>
@@ -506,10 +506,10 @@ export const JobEntryTable = ({
                       value={newEntry.mileageEnd}
                       onChange={(e) => setNewEntry(prev => ({ ...prev, mileageEnd: e.target.value }))}
                       onKeyDown={handleKeyDown}
-                      className="h-10 text-base w-24"
+                      className="h-10 text-sm sm:text-base w-24"
                     />
                   </TableCell>
-                  <TableCell className="font-mono text-base text-muted-foreground text-center">
+                  <TableCell className="font-mono text-muted-foreground text-center">
                     {newEntry.mileageStart && newEntry.mileageEnd
                       ? Number(newEntry.mileageEnd) - Number(newEntry.mileageStart)
                       : '-'}
@@ -522,7 +522,7 @@ export const JobEntryTable = ({
                       value={newEntry.amountPaid}
                       onChange={(e) => setNewEntry(prev => ({ ...prev, amountPaid: e.target.value }))}
                       onKeyDown={handleKeyDown}
-                      className="h-10 text-base w-28"
+                      className="h-10 text-sm sm:text-base w-28"
                     />
                   </TableCell>
                   <TableCell className="text-center">

@@ -562,6 +562,7 @@ export const useMonthlyData = () => {
   }, [monthlyLogs]);
 
   return {
+    monthlyLogs,
     currentMonth,
     setCurrentMonth,
     currentLog,
