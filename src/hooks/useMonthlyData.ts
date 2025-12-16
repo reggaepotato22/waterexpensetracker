@@ -19,6 +19,10 @@ const emptyFuelData: FuelData = {
   totalExpense: null,
   fuelBalance: null,
   amountEarned: null,
+  fuelConsumptionRate: null,
+  otherCosts: null,
+  netProfit: null,
+  totalLitersUsedDiesel: null,
 };
 
 const createEmptyLog = (monthKey: string): MonthlyLog => ({
@@ -156,6 +160,10 @@ export const useMonthlyData = () => {
             totalExpense: fuelDataRow.total_expense,
             fuelBalance: fuelDataRow.fuel_balance,
             amountEarned: fuelDataRow.amount_earned,
+            fuelConsumptionRate: fuelDataRow.fuel_consumption_rate ?? null,
+            otherCosts: fuelDataRow.other_costs ?? null,
+            netProfit: fuelDataRow.net_profit ?? null,
+            totalLitersUsedDiesel: fuelDataRow.total_liters_used_diesel ?? null,
           } : { ...emptyFuelData };
 
           const misdemeanors: Misdemeanor[] = (misData || []).map(m => ({
@@ -435,6 +443,10 @@ export const useMonthlyData = () => {
         total_expense: data.totalExpense,
         fuel_balance: data.fuelBalance,
         amount_earned: data.amountEarned,
+        fuel_consumption_rate: data.fuelConsumptionRate,
+        other_costs: data.otherCosts,
+        net_profit: data.netProfit,
+        total_liters_used_diesel: data.totalLitersUsedDiesel,
       };
 
       if (existing) {

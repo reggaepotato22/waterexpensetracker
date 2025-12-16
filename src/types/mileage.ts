@@ -37,6 +37,10 @@ export interface FuelData {
   totalExpense: number | null;
   fuelBalance: number | null;
   amountEarned: number | null;
+  fuelConsumptionRate?: number | null;
+  otherCosts?: number | null;
+  netProfit?: number | null;
+  totalLitersUsedDiesel?: number | null;
 }
 
 export interface MonthlyLog {

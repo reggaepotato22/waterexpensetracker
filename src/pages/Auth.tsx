@@ -14,6 +14,7 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isResetSending, setIsResetSending] = useState(false);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -82,6 +83,28 @@ const Auth = () => {
     setIsLoading(false);
   };
 
+  const handleSendResetLink = async () => {
+    if (!email) {
+      toast.error('Enter your email first so we know where to send the link.');
+      return;
+    }
+
+    setIsResetSending(true);
+    const redirectUrl = `${window.location.origin}/`;
+
+    // Use a password-reset style email; user can sign back in from their inbox
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
+    });
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Check your email for a password reset link.');
+    }
+    setIsResetSending(false);
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md border-border bg-card">
@@ -128,6 +151,18 @@ const Auth = () => {
                       className="pl-10"
                     />
                   </div>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Forgot your password?</span>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="px-0 text-xs"
+                    onClick={handleSendResetLink}
+                    disabled={isResetSending}
+                  >
+                    {isResetSending ? 'Sending link…' : 'Email reset link'}
+                  </Button>
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? 'Signing in...' : 'Sign In'}

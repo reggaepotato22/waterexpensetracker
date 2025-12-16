@@ -9,10 +9,11 @@ import { toast } from 'sonner';
 
 interface FuelExpenseFormProps {
   fuelData: FuelData;
+  totalDistance: number;
   onSave: (data: FuelData) => void;
 }
 
-export const FuelExpenseForm = ({ fuelData, onSave }: FuelExpenseFormProps) => {
+export const FuelExpenseForm = ({ fuelData, totalDistance, onSave }: FuelExpenseFormProps) => {
   const [formData, setFormData] = useState<FuelData>(fuelData);
 
   useEffect(() => {
@@ -27,22 +28,47 @@ export const FuelExpenseForm = ({ fuelData, onSave }: FuelExpenseFormProps) => {
   };
 
   const handleSave = () => {
-    onSave(formData);
+    const dieselUnitCost =
+      formData.dieselAmount && formData.dieselAmount > 0
+        ? (formData.dieselCost || 0) / formData.dieselAmount
+        : 0;
+    const usageCost = dieselUnitCost * calculatedLitersUsedDiesel;
+    const netProfit =
+      (formData.amountEarned || 0) -
+      (usageCost +
+        (formData.dieselCost || 0) +
+        (formData.petrolCost || 0) +
+        (formData.totalExpense || 0) +
+        (formData.otherCosts || 0));
+
+    const payload = {
+      ...formData,
+      totalLitersUsedDiesel: calculatedLitersUsedDiesel,
+      totalLitersUsed: formData.totalLitersUsed ?? calculatedTotalLiters,
+      netProfit,
+    };
+    onSave(payload);
     toast.success('Fuel & expense data saved');
   };
 
   const calculatedTotalLiters = (formData.dieselAmount || 0) + (formData.petrolAmount || 0);
   const calculatedTotalCost = (formData.dieselCost || 0) + (formData.petrolCost || 0);
+  const calculatedLitersUsedDiesel =
+    formData.fuelConsumptionRate && formData.fuelConsumptionRate > 0
+      ? Number((totalDistance / formData.fuelConsumptionRate).toFixed(2))
+      : formData.totalLitersUsedDiesel || 0;
 
-  const fields: { key: keyof FuelData; label: string; prefix?: string; suffix?: string }[] = [
+  const fields: { key: keyof FuelData; label: string; prefix?: string; suffix?: string; placeholder?: string }[] = [
     { key: 'fuelCf', label: 'Fuel CF' },
     { key: 'dieselAmount', label: 'Diesel Amount', suffix: 'L' },
     { key: 'dieselCost', label: 'Diesel Cost', prefix: 'KES' },
     { key: 'petrolAmount', label: 'Petrol Amount', suffix: 'L' },
     { key: 'petrolCost', label: 'Petrol Cost', prefix: 'KES' },
-    { key: 'totalLitersUsed', label: 'Total Liters Used', suffix: 'L' },
+    { key: 'fuelConsumptionRate', label: 'Fuel Consumption (km/L)', suffix: 'km/L', placeholder: 'e.g. 6' },
+    { key: 'totalLitersUsedDiesel', label: 'Total Liters Used - Diesel', suffix: 'L' },
     { key: 'totalCost', label: 'Total Cost', prefix: 'KES' },
     { key: 'totalExpense', label: 'Total Expense', prefix: 'KES' },
+    { key: 'otherCosts', label: 'Other Costs', prefix: 'KES' },
     { key: 'fuelBalance', label: 'Fuel Balance', prefix: 'KES' },
     { key: 'amountEarned', label: 'Amount Earned', prefix: 'KES' },
   ];
@@ -57,7 +83,7 @@ export const FuelExpenseForm = ({ fuelData, onSave }: FuelExpenseFormProps) => {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {fields.map(({ key, label, prefix, suffix }) => (
+          {fields.map(({ key, label, prefix, suffix, placeholder }) => (
             <div key={key} className="space-y-2">
               <Label htmlFor={key} className="text-xs">{label}</Label>
               <div className="relative">
@@ -73,7 +99,7 @@ export const FuelExpenseForm = ({ fuelData, onSave }: FuelExpenseFormProps) => {
                   value={formData[key] || ''}
                   onChange={(e) => handleChange(key, e.target.value)}
                   className={prefix ? 'pl-12' : ''}
-                  placeholder="0"
+                  placeholder={placeholder || '0'}
                 />
                 {suffix && (
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
@@ -95,13 +121,17 @@ export const FuelExpenseForm = ({ fuelData, onSave }: FuelExpenseFormProps) => {
             <span className="text-muted-foreground">Auto Total Cost:</span>
             <span className="ml-2 font-medium">KES {calculatedTotalCost.toLocaleString()}</span>
           </div>
+          <div>
+            <span className="text-muted-foreground">Distance-based Diesel Use:</span>
+            <span className="ml-2 font-medium">{calculatedLitersUsedDiesel} L</span>
+          </div>
         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-4 bg-muted rounded-lg text-center">
-            <div className="text-2xl font-bold">{formData.totalLitersUsed || calculatedTotalLiters} L</div>
-            <div className="text-xs text-muted-foreground">Total Fuel</div>
+            <div className="text-2xl font-bold">{calculatedLitersUsedDiesel || formData.totalLitersUsed || calculatedTotalLiters} L</div>
+            <div className="text-xs text-muted-foreground">Total Fuel (Diesel)</div>
           </div>
           <div className="p-4 bg-muted rounded-lg text-center">
             <div className="text-2xl font-bold">KES {(formData.totalCost || calculatedTotalCost).toLocaleString()}</div>

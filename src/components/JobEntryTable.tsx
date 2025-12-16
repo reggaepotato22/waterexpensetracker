@@ -269,6 +269,7 @@ export const JobEntryTable = ({
 
   const totalDistance = entries.reduce((sum, e) => sum + (e.distance || 0), 0);
   const totalAmount = entries.reduce((sum, e) => sum + (e.amountPaid || 0), 0);
+  const paidJobsCount = entries.filter(e => (e.amountPaid || 0) > 0).length;
   const lastMileage = entries[entries.length - 1]?.mileageEnd || startMileage || 0;
 
   const getRowStyle = (entry: MileageEntry) => {
@@ -555,8 +556,8 @@ export const JobEntryTable = ({
           <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg border border-primary/20 flex-wrap gap-4">
             <div className="flex items-center gap-8 flex-wrap">
               <div>
-                <span className="text-sm text-muted-foreground">No. of Jobs:</span>
-                <span className="ml-2 font-bold text-xl">{entries.length}</span>
+                <span className="text-sm text-muted-foreground">Paid Jobs:</span>
+                <span className="ml-2 font-bold text-xl">{paidJobsCount}</span>
               </div>
               <div>
                 <span className="text-sm text-muted-foreground">Total Distance:</span>
