@@ -267,26 +267,6 @@ export const JobEntryTable = ({
         }
       });
 
-      // Auto-fill order numbers for paid jobs without order number,
-      // using CSV rows with a similar customer name.
-      const updatedFromCsv = [...entries];
-      csvDeliveries.forEach(csv => {
-        const normalizedCsvCustomer = csv.customer.toLowerCase().trim();
-        if (!normalizedCsvCustomer) return;
-
-        // Find a paid entry with no orderNumber and similar customer name
-        const match = updatedFromCsv.find(e =>
-          (e.amountPaid || 0) > 0 &&
-          !e.orderNumber &&
-          e.customer &&
-          e.customer.toLowerCase().includes(normalizedCsvCustomer)
-        );
-
-        if (match) {
-          onUpdateEntry(match.id, { orderNumber: csv.orderNumber });
-        }
-      });
-
       setCsvComparisons(comparisons);
       setShowComparisonDialog(true);
 
@@ -357,11 +337,11 @@ export const JobEntryTable = ({
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Start Mileage */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-muted rounded-lg">
+          <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
             <span className="font-medium text-foreground min-w-fit">Start Mileage:</span>
             <Input
               type="number"
-              className="w-full sm:w-40 text-base"
+              className="w-40 text-base"
               value={monthStartMileage}
               onChange={(e) => setMonthStartMileage(e.target.value)}
               placeholder="e.g., 72449"
@@ -370,7 +350,7 @@ export const JobEntryTable = ({
           </div>
 
           {/* Entries Table */}
-          <div className="overflow-x-auto overflow-y-visible rounded-lg border border-border lg:overflow-visible">
+          <div className="overflow-x-auto rounded-lg border border-border lg:overflow-visible">
             <Table className="min-w-[900px] text-sm">
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -413,14 +393,14 @@ export const JobEntryTable = ({
                         <Input
                           value={entry.start}
                           onChange={(e) => onUpdateEntry(entry.id, { start: e.target.value })}
-                          className="h-11 text-base sm:text-sm sm:text-base min-w-[140px]"
+                          className="h-10 text-sm sm:text-base min-w-[120px]"
                         />
                       </TableCell>
                       <TableCell>
                         <Input
                           value={entry.end}
                           onChange={(e) => onUpdateEntry(entry.id, { end: e.target.value })}
-                          className="h-11 text-base sm:text-sm sm:text-base min-w-[140px]"
+                          className="h-10 text-sm sm:text-base min-w-[120px]"
                         />
                       </TableCell>
                       <TableCell>
@@ -504,7 +484,7 @@ export const JobEntryTable = ({
                           }
                         }}
                         onKeyDown={handleKeyDown('start')}
-                        className="h-11 text-base sm:text-sm sm:text-base min-w-[140px]"
+                        className="h-10 text-sm sm:text-base min-w-[120px]"
                       />
                       {showStartSuggestions && filteredStartPlaces.length > 0 && newEntry.start && (
                         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -536,7 +516,7 @@ export const JobEntryTable = ({
                           }
                         }}
                         onKeyDown={handleKeyDown('end')}
-                        className="h-11 text-base sm:text-sm sm:text-base min-w-[140px]"
+                        className="h-10 text-sm sm:text-base min-w-[120px]"
                       />
                       {showEndSuggestions && filteredEndPlaces.length > 0 && newEntry.end && (
                         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">

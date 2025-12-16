@@ -265,7 +265,6 @@ export const useMonthlyData = () => {
     isWaterFill?: boolean;
     isParking?: boolean;
     status?: MileageEntry['status'];
-    date?: Date;
   }) => {
     const distance = data.mileageEnd - data.mileageStart;
     const newEntry: MileageEntry = {
@@ -282,7 +281,6 @@ export const useMonthlyData = () => {
       amountPaid: data.amountPaid ?? null,
       isWaterFill: data.isWaterFill || false,
       isParking: data.isParking || false,
-      date: data.date,
       timestamp: new Date(),
       status: data.status || 'manual',
     };
@@ -316,7 +314,6 @@ export const useMonthlyData = () => {
             amount_paid: data.amountPaid,
             is_water_fill: data.isWaterFill || false,
             is_parking: data.isParking || false,
-            date: data.date ? format(data.date, 'yyyy-MM-dd') : null,
           })
           .select()
           .single();
