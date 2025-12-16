@@ -7,6 +7,7 @@ import { format, parseISO } from "date-fns";
 
 interface MonthlyHistoryProps {
   logs: Record<string, MonthlyLog>;
+  onSelectDay?: (monthKey: string, date: string) => void;
 }
 
 interface DailyStats {
@@ -43,7 +44,7 @@ const buildDailyStats = (entries: MileageEntry[]): DailyStats[] => {
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
 };
 
-export const MonthlyHistory = ({ logs }: MonthlyHistoryProps) => {
+export const MonthlyHistory = ({ logs, onSelectDay }: MonthlyHistoryProps) => {
   const [openMonth, setOpenMonth] = useState<string | null>(null);
 
   const sortedMonths = Object.values(logs).sort((a, b) =>
@@ -164,9 +165,10 @@ export const MonthlyHistory = ({ logs }: MonthlyHistoryProps) => {
                         {dailyStats.map((d) => (
                           <tr
                             key={d.date}
-                            className="border-b border-border/40 last:border-0 hover:bg-card/60"
+                            className="border-b border-border/40 last:border-0 hover:bg-card/60 cursor-pointer transition-colors"
+                            onClick={() => onSelectDay?.(log.month, d.date)}
                           >
-                            <td className="py-1.5 pr-4">
+                            <td className="py-1.5 pr-4 font-medium">
                               {format(parseISO(d.date), "EEE, dd MMM")}
                             </td>
                             <td className="py-1.5 pr-4 text-right">
@@ -178,7 +180,7 @@ export const MonthlyHistory = ({ logs }: MonthlyHistoryProps) => {
                             <td className="py-1.5 pr-4 text-right">
                               {d.distance.toLocaleString()}
                             </td>
-                            <td className="py-1.5 pr-4 text-right">
+                            <td className="py-1.5 pr-4 text-right font-mono">
                               {d.amount.toLocaleString()}
                             </td>
                           </tr>

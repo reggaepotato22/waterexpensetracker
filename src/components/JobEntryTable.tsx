@@ -53,6 +53,7 @@ export const JobEntryTable = ({
   });
   const [monthStartMileage, setMonthStartMileage] = useState(startMileage?.toString() || '');
   const [csvComparisons, setCsvComparisons] = useState<CSVComparison[]>([]);
+  const [csvDeliveriesForAutofill, setCsvDeliveriesForAutofill] = useState<CSVDelivery[]>([]);
   const [showComparisonDialog, setShowComparisonDialog] = useState(false);
   const [showStartSuggestions, setShowStartSuggestions] = useState(false);
   const [showEndSuggestions, setShowEndSuggestions] = useState(false);
@@ -77,6 +78,22 @@ export const JobEntryTable = ({
 
   useEffect(() => {
     const lastEntry = entries[entries.length - 1];
+    if (!entries.length) {
+      // New day or cleared list: reset the new-entry row
+      setNewEntry({
+        start: '',
+        end: '',
+        mileageStart: '',
+        mileageEnd: '',
+        amountPaid: '',
+        orderNumber: '',
+        customer: '',
+        isWaterFill: false,
+        isParking: false,
+      });
+      return;
+    }
+
     if (lastEntry && !newEntry.start) {
       setNewEntry(prev => ({
         ...prev,
@@ -85,6 +102,51 @@ export const JobEntryTable = ({
       }));
     }
   }, [entries]);
+
+  // Keep CSV comparison results in sync whenever entries or CSV deliveries change.
+  useEffect(() => {
+    if (!csvDeliveriesForAutofill.length) {
+      setCsvComparisons([]);
+      return;
+    }
+
+    const comparisons: CSVComparison[] = [];
+
+    csvDeliveriesForAutofill.forEach(csv => {
+      const matchedEntry = entries.find(e => e.orderNumber === csv.orderNumber);
+      if (matchedEntry) {
+        comparisons.push({
+          orderNumber: csv.orderNumber,
+          customer: csv.customer,
+          earning: csv.earning,
+          status: 'matched',
+          matchedEntryId: matchedEntry.id,
+          amountMatches: matchedEntry.amountPaid === csv.earning,
+        });
+      } else {
+        comparisons.push({
+          orderNumber: csv.orderNumber,
+          customer: csv.customer,
+          earning: csv.earning,
+          status: 'missing',
+        });
+      }
+    });
+
+    entries.forEach(entry => {
+      if (entry.orderNumber && !csvDeliveriesForAutofill.find(c => c.orderNumber === entry.orderNumber)) {
+        comparisons.push({
+          orderNumber: entry.orderNumber,
+          customer: entry.customer || '',
+          earning: entry.amountPaid || 0,
+          status: 'extra',
+          matchedEntryId: entry.id,
+        });
+      }
+    });
+
+    setCsvComparisons(comparisons);
+  }, [entries, csvDeliveriesForAutofill]);
 
   useEffect(() => {
     const placesFromEntries = entries.flatMap(e => [e.start, e.end]).filter(Boolean);
@@ -229,14 +291,15 @@ export const JobEntryTable = ({
         }
       });
 
-      // Build comparison results
-      const comparisons: CSVComparison[] = [];
+      // Store CSV rows in memory for comparison and auto-fill
+      setCsvDeliveriesForAutofill(csvDeliveries);
 
-      // Check each CSV delivery against entries
+      // Show a one-time toast based on initial comparison snapshot
+      const initialComparisons: CSVComparison[] = [];
       csvDeliveries.forEach(csv => {
         const matchedEntry = entries.find(e => e.orderNumber === csv.orderNumber);
         if (matchedEntry) {
-          comparisons.push({
+          initialComparisons.push({
             orderNumber: csv.orderNumber,
             customer: csv.customer,
             earning: csv.earning,
@@ -245,7 +308,7 @@ export const JobEntryTable = ({
             amountMatches: matchedEntry.amountPaid === csv.earning,
           });
         } else {
-          comparisons.push({
+          initialComparisons.push({
             orderNumber: csv.orderNumber,
             customer: csv.customer,
             earning: csv.earning,
@@ -254,24 +317,8 @@ export const JobEntryTable = ({
         }
       });
 
-      // Check entries that aren't in CSV (extra entries)
-      entries.forEach(entry => {
-        if (entry.orderNumber && !csvDeliveries.find(c => c.orderNumber === entry.orderNumber)) {
-          comparisons.push({
-            orderNumber: entry.orderNumber,
-            customer: entry.customer || '',
-            earning: entry.amountPaid || 0,
-            status: 'extra',
-            matchedEntryId: entry.id,
-          });
-        }
-      });
-
-      setCsvComparisons(comparisons);
-      setShowComparisonDialog(true);
-
-      const matched = comparisons.filter(c => c.status === 'matched').length;
-      const missing = comparisons.filter(c => c.status === 'missing').length;
+      const matched = initialComparisons.filter(c => c.status === 'matched').length;
+      const missing = initialComparisons.filter(c => c.status === 'missing').length;
       toast.info(`Found ${matched} matched, ${missing} missing from your entries`);
     };
     reader.readAsText(file);
@@ -335,13 +382,13 @@ export const JobEntryTable = ({
             </Button>
           </label>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 max-h-[70vh] overflow-y-auto">
           {/* Start Mileage */}
-          <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-muted rounded-lg">
             <span className="font-medium text-foreground min-w-fit">Start Mileage:</span>
             <Input
               type="number"
-              className="w-40 text-base"
+              className="w-full sm:w-40 text-base"
               value={monthStartMileage}
               onChange={(e) => setMonthStartMileage(e.target.value)}
               placeholder="e.g., 72449"
@@ -350,7 +397,7 @@ export const JobEntryTable = ({
           </div>
 
           {/* Entries Table */}
-          <div className="overflow-x-auto rounded-lg border border-border lg:overflow-visible">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <Table className="min-w-[900px] text-sm">
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -392,15 +439,52 @@ export const JobEntryTable = ({
                       <TableCell>
                         <Input
                           value={entry.start}
-                          onChange={(e) => onUpdateEntry(entry.id, { start: e.target.value })}
-                          className="h-10 text-sm sm:text-base min-w-[120px]"
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            onUpdateEntry(entry.id, { start: value });
+
+                            // When user types the customer location in Start,
+                            // try to auto-fill order number for paid jobs.
+                            if (!csvDeliveriesForAutofill.length) return;
+                            if ((entry.amountPaid || 0) <= 0) return;
+                            if (entry.orderNumber) return;
+
+                            const normalized = value.toLowerCase();
+                            const match = csvDeliveriesForAutofill.find(csv =>
+                              csv.customer &&
+                              normalized.includes(csv.customer.toLowerCase())
+                            );
+
+                            if (match) {
+                              onUpdateEntry(entry.id, { orderNumber: match.orderNumber });
+                            }
+                          }}
+                          className="h-11 text-base sm:text-sm sm:text-base min-w-[140px]"
                         />
                       </TableCell>
                       <TableCell>
                         <Input
                           value={entry.end}
-                          onChange={(e) => onUpdateEntry(entry.id, { end: e.target.value })}
-                          className="h-10 text-sm sm:text-base min-w-[120px]"
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            onUpdateEntry(entry.id, { end: value });
+
+                            // Also support matching on End location
+                            if (!csvDeliveriesForAutofill.length) return;
+                            if ((entry.amountPaid || 0) <= 0) return;
+                            if (entry.orderNumber) return;
+
+                            const normalized = value.toLowerCase();
+                            const match = csvDeliveriesForAutofill.find(csv =>
+                              csv.customer &&
+                              normalized.includes(csv.customer.toLowerCase())
+                            );
+
+                            if (match) {
+                              onUpdateEntry(entry.id, { orderNumber: match.orderNumber });
+                            }
+                          }}
+                          className="h-11 text-base sm:text-sm sm:text-base min-w-[140px]"
                         />
                       </TableCell>
                       <TableCell>
@@ -425,7 +509,33 @@ export const JobEntryTable = ({
                         <Input
                           type="number"
                           value={entry.amountPaid || ''}
-                          onChange={(e) => onUpdateEntry(entry.id, { amountPaid: e.target.value ? Number(e.target.value) : null })}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const amount = raw ? Number(raw) : null;
+                            onUpdateEntry(entry.id, { amountPaid: amount });
+
+                            // When a line becomes "paid", also try to auto-fill
+                            // order number using both customer name and cost.
+                            if (!csvDeliveriesForAutofill.length) return;
+                            if (!amount || amount <= 0) return;
+                            if (entry.orderNumber) return;
+
+                            const locations = `${entry.start} ${entry.end}`.toLowerCase();
+                            const match = csvDeliveriesForAutofill.find(csv => {
+                              const name = csv.customer.toLowerCase();
+                              if (!name) return false;
+                              const locMatch =
+                                locations.includes(name) ||
+                                name.includes(locations.trim());
+                              const amountMatch =
+                                Math.round(csv.earning) === Math.round(amount);
+                              return locMatch && amountMatch;
+                            });
+
+                            if (match) {
+                              onUpdateEntry(entry.id, { orderNumber: match.orderNumber });
+                            }
+                          }}
                           className="h-10 text-sm sm:text-base w-28"
                           placeholder="0"
                         />
@@ -484,7 +594,7 @@ export const JobEntryTable = ({
                           }
                         }}
                         onKeyDown={handleKeyDown('start')}
-                        className="h-10 text-sm sm:text-base min-w-[120px]"
+                        className="h-11 text-base sm:text-sm sm:text-base min-w-[140px]"
                       />
                       {showStartSuggestions && filteredStartPlaces.length > 0 && newEntry.start && (
                         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -516,7 +626,7 @@ export const JobEntryTable = ({
                           }
                         }}
                         onKeyDown={handleKeyDown('end')}
-                        className="h-10 text-sm sm:text-base min-w-[120px]"
+                        className="h-11 text-base sm:text-sm sm:text-base min-w-[140px]"
                       />
                       {showEndSuggestions && filteredEndPlaces.length > 0 && newEntry.end && (
                         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">

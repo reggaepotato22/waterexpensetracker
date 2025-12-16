@@ -13,10 +13,12 @@ import { MonthlyCharts } from '@/components/MonthlyCharts';
 import { MonthlyAnalysis } from '@/components/MonthlyAnalysis';
 import { CSVComparison } from '@/components/CSVComparison';
 import { MonthlyHistory } from '@/components/MonthlyHistory';
+import { NewDayDialog } from '@/components/NewDayDialog';
+import { SettingsDialog } from '@/components/SettingsDialog';
 import { useMonthlyData } from '@/hooks/useMonthlyData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { parse, format } from 'date-fns';
+import { parse, format, addDays, parseISO } from 'date-fns';
 import { LogOut, User } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -42,9 +44,44 @@ const Index = () => {
     user,
   } = useMonthlyData();
 
+  const [showNewDayDialog, setShowNewDayDialog] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
+  const [showSettingsOnStartup, setShowSettingsOnStartup] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<string>('jobs');
+
+  useEffect(() => {
+    const stored = localStorage.getItem('watertracker-hide-settings');
+    if (stored === 'true') {
+      setShowSettingsOnStartup(false);
+    } else {
+      setShowSettingsDialog(true);
+    }
+  }, []);
+
+  const handleShowOnStartupChange = (value: boolean) => {
+    setShowSettingsOnStartup(value);
+    localStorage.setItem('watertracker-hide-settings', value ? 'false' : 'true');
+  };
+
   const selectedDate = parse(currentMonth, 'yyyy-MM', new Date());
   const handleMonthChange = (date: Date) => {
     setCurrentMonth(format(date, 'yyyy-MM'));
+    setSelectedDay(date);
+  };
+
+  const handleCreateNewDay = (date: Date) => {
+    setCurrentMonth(format(date, 'yyyy-MM'));
+    setSelectedDay(date);
+    toast.success(`Switched to ${format(date, 'MMMM yyyy')} for new day entries`);
+  };
+
+  const handleSaveDayAndNext = () => {
+    const base = selectedDay || new Date();
+    toast.success(`Saved entries for ${format(base, 'EEE, dd MMM yyyy')}`);
+    const next = addDays(base, 1);
+    handleCreateNewDay(next);
+    setActiveTab('jobs');
   };
 
   const handleSignOut = async () => {
@@ -64,7 +101,10 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header
+        onCreateNewDay={() => setShowNewDayDialog(true)}
+        onOpenSettings={() => setShowSettingsDialog(true)}
+      />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Auth Status Bar */}
@@ -105,26 +145,76 @@ const Index = () => {
           totalDistance={totalDistance}
         />
 
-        <Tabs defaultValue="jobs" className="w-full">
-          <TabsList className="grid w-full grid-cols-8 h-12">
-            <TabsTrigger value="jobs" className="text-sm">Jobs</TabsTrigger>
-            <TabsTrigger value="fuel" className="text-sm">Fuel & Expenses</TabsTrigger>
-            <TabsTrigger value="misdemeanors" className="text-sm">Misdemeanors</TabsTrigger>
-            <TabsTrigger value="charts" className="text-sm">Charts</TabsTrigger>
-            <TabsTrigger value="analysis" className="text-sm">Analysis</TabsTrigger>
-            <TabsTrigger value="compare" className="text-sm">Compare CSV</TabsTrigger>
-            <TabsTrigger value="history" className="text-sm">Monthly Folder</TabsTrigger>
-            <TabsTrigger value="export" className="text-sm">Export</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1 h-auto">
+            <TabsTrigger value="jobs" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Jobs
+            </TabsTrigger>
+            <TabsTrigger value="fuel" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Fuel & Expenses
+            </TabsTrigger>
+            <TabsTrigger value="misdemeanors" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Misdemeanors
+            </TabsTrigger>
+            <TabsTrigger value="charts" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Charts
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Analysis
+            </TabsTrigger>
+            <TabsTrigger value="compare" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Compare CSV
+            </TabsTrigger>
+            <TabsTrigger value="history" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Monthly Folder
+            </TabsTrigger>
+            <TabsTrigger value="export" className="text-xs sm:text-sm px-2 py-1 whitespace-normal text-center">
+              Export
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="jobs" className="mt-6 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg bg-card border border-border/60">
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Active day
+                </span>
+                <span className="text-sm font-medium">
+                  {selectedDay ? format(selectedDay, 'EEE, dd MMM yyyy') : 'All days in month'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowNewDayDialog(true)}
+                >
+                  New Day
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleSaveDayAndNext}
+                >
+                  Save Day & Next
+                </Button>
+              </div>
+            </div>
             <WaterFillSites
               sites={waterFillSites}
               onAdd={addWaterFillSite}
               onDelete={deleteWaterFillSite}
             />
             <JobEntryTable
-              entries={currentLog.entries}
+              entries={
+                selectedDay
+                  ? currentLog.entries.filter((e) =>
+                      e.date
+                        ? format(e.date, 'yyyy-MM-dd') === format(selectedDay, 'yyyy-MM-dd')
+                        : true
+                    )
+                  : currentLog.entries
+              }
               startMileage={currentLog.startMileage}
               waterFillSites={waterFillSites}
               onAddEntry={(entry) => addEntry({
@@ -137,6 +227,7 @@ const Index = () => {
                 customer: entry.customer,
                 isWaterFill: entry.isWaterFill,
                 isParking: entry.isParking,
+                date: selectedDay || new Date(),
               })}
               onUpdateEntry={updateEntry}
               onDeleteEntry={deleteEntry}
@@ -177,7 +268,15 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="history" className="mt-6">
-            <MonthlyHistory logs={monthlyLogs} />
+            <MonthlyHistory
+              logs={monthlyLogs}
+              onSelectDay={(monthKey, dateStr) => {
+                setCurrentMonth(monthKey);
+                const d = parseISO(dateStr);
+                setSelectedDay(d);
+                setActiveTab('jobs');
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="export" className="mt-6">
@@ -189,6 +288,22 @@ const Index = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* New Day Sheet Dialog */}
+      <NewDayDialog
+        open={showNewDayDialog}
+        onOpenChange={setShowNewDayDialog}
+        onCreate={handleCreateNewDay}
+        initialDate={selectedDate}
+      />
+
+      {/* Settings Dialog */}
+      <SettingsDialog
+        open={showSettingsDialog}
+        onOpenChange={setShowSettingsDialog}
+        showOnStartup={showSettingsOnStartup}
+        onShowOnStartupChange={handleShowOnStartupChange}
+      />
     </div>
   );
 };
