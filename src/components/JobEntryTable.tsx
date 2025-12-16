@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,13 @@ export const JobEntryTable = ({
   const [showComparisonDialog, setShowComparisonDialog] = useState(false);
   const [showStartSuggestions, setShowStartSuggestions] = useState(false);
   const [showEndSuggestions, setShowEndSuggestions] = useState(false);
+
+  const orderInputRef = useRef<HTMLInputElement | null>(null);
+  const startInputRef = useRef<HTMLInputElement | null>(null);
+  const endInputRef = useRef<HTMLInputElement | null>(null);
+  const mileageStartRef = useRef<HTMLInputElement | null>(null);
+  const mileageEndRef = useRef<HTMLInputElement | null>(null);
+  const amountRef = useRef<HTMLInputElement | null>(null);
 
   const [knownPlaces, setKnownPlaces] = useState<string[]>(() => {
     const stored = localStorage.getItem(PLACES_STORAGE_KEY);
@@ -144,12 +151,36 @@ export const JobEntryTable = ({
     });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAddEntry();
+  const focusNextField = (field: 'order' | 'start' | 'end' | 'mStart' | 'mEnd' | 'amount') => {
+    const map: Record<'order' | 'start' | 'end' | 'mStart' | 'mEnd' | 'amount', React.RefObject<HTMLInputElement>> = {
+      order: startInputRef,
+      start: endInputRef,
+      end: mileageStartRef,
+      mStart: mileageEndRef,
+      mEnd: amountRef,
+      amount: orderInputRef,
+    };
+    const ref = map[field];
+    if (ref.current) {
+      ref.current.focus();
+      ref.current.select();
     }
   };
+
+  const handleKeyDown =
+    (field: 'order' | 'start' | 'end' | 'mStart' | 'mEnd' | 'amount') =>
+    (e: React.KeyboardEvent) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+
+      if (field === 'amount') {
+        handleAddEntry();
+        // Focus the order field of the new blank row
+        setTimeout(() => focusNextField('amount'), 0);
+      } else {
+        focusNextField(field);
+      }
+    };
 
   const handleStartMileageSave = () => {
     if (monthStartMileage) {
@@ -429,24 +460,31 @@ export const JobEntryTable = ({
                 <TableRow className="bg-muted/30">
                   <TableCell className="text-muted-foreground text-center font-medium">{entries.length + 1}</TableCell>
                   <TableCell>
-                              <Input
+                    <Input
+                      ref={orderInputRef}
                       placeholder="Order #"
                       value={newEntry.orderNumber}
                       onChange={(e) => setNewEntry(prev => ({ ...prev, orderNumber: e.target.value }))}
-                      onKeyDown={handleKeyDown}
-                      className="h-10 text-base"
+                      onKeyDown={handleKeyDown('order')}
+                      className="h-10 text-sm sm:text-base"
                     />
                   </TableCell>
                   <TableCell>
                     <div className="relative">
                       <Input
+                        ref={startInputRef}
                         placeholder="Start location"
                         value={newEntry.start}
                         onChange={(e) => setNewEntry(prev => ({ ...prev, start: e.target.value }))}
                         onFocus={() => setShowStartSuggestions(true)}
-                        onBlur={() => setTimeout(() => setShowStartSuggestions(false), 200)}
-                        onKeyDown={handleKeyDown}
-                        className="h-10 text-base min-w-[120px]"
+                        onBlur={() => {
+                          setTimeout(() => setShowStartSuggestions(false), 150);
+                          if (!newEntry.start && filteredStartPlaces.length > 0) {
+                            setNewEntry(prev => ({ ...prev, start: filteredStartPlaces[0] }));
+                          }
+                        }}
+                        onKeyDown={handleKeyDown('start')}
+                        className="h-10 text-sm sm:text-base min-w-[120px]"
                       />
                       {showStartSuggestions && filteredStartPlaces.length > 0 && newEntry.start && (
                         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -466,13 +504,19 @@ export const JobEntryTable = ({
                   <TableCell>
                     <div className="relative">
                       <Input
+                        ref={endInputRef}
                         placeholder="End location"
                         value={newEntry.end}
                         onChange={(e) => setNewEntry(prev => ({ ...prev, end: e.target.value }))}
                         onFocus={() => setShowEndSuggestions(true)}
-                        onBlur={() => setTimeout(() => setShowEndSuggestions(false), 200)}
-                        onKeyDown={handleKeyDown}
-                        className="h-10 text-base min-w-[120px]"
+                        onBlur={() => {
+                          setTimeout(() => setShowEndSuggestions(false), 150);
+                          if (!newEntry.end && filteredEndPlaces.length > 0) {
+                            setNewEntry(prev => ({ ...prev, end: filteredEndPlaces[0] }));
+                          }
+                        }}
+                        onKeyDown={handleKeyDown('end')}
+                        className="h-10 text-sm sm:text-base min-w-[120px]"
                       />
                       {showEndSuggestions && filteredEndPlaces.length > 0 && newEntry.end && (
                         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -491,21 +535,23 @@ export const JobEntryTable = ({
                   </TableCell>
                   <TableCell>
                     <Input
+                      ref={mileageStartRef}
                       type="number"
                       placeholder={lastMileage.toString()}
                       value={newEntry.mileageStart}
                       onChange={(e) => setNewEntry(prev => ({ ...prev, mileageStart: e.target.value }))}
-                      onKeyDown={handleKeyDown}
+                      onKeyDown={handleKeyDown('mStart')}
                       className="h-10 text-sm sm:text-base w-24"
                     />
                   </TableCell>
                   <TableCell>
                     <Input
+                      ref={mileageEndRef}
                       type="number"
                       placeholder="End"
                       value={newEntry.mileageEnd}
                       onChange={(e) => setNewEntry(prev => ({ ...prev, mileageEnd: e.target.value }))}
-                      onKeyDown={handleKeyDown}
+                      onKeyDown={handleKeyDown('mEnd')}
                       className="h-10 text-sm sm:text-base w-24"
                     />
                   </TableCell>
@@ -517,11 +563,12 @@ export const JobEntryTable = ({
                   <TableCell></TableCell>
                   <TableCell>
                     <Input
+                      ref={amountRef}
                       type="number"
                       placeholder="Amount"
                       value={newEntry.amountPaid}
                       onChange={(e) => setNewEntry(prev => ({ ...prev, amountPaid: e.target.value }))}
-                      onKeyDown={handleKeyDown}
+                      onKeyDown={handleKeyDown('amount')}
                       className="h-10 text-sm sm:text-base w-28"
                     />
                   </TableCell>
