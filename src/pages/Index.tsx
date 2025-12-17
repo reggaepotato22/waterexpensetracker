@@ -33,6 +33,7 @@ const Index = () => {
     addEntry,
     updateEntry,
     deleteEntry,
+    deleteDay,
     setStartMileage,
     addMisdemeanor,
     updateMisdemeanor,
@@ -89,7 +90,16 @@ const Index = () => {
     toast.success('Signed out successfully');
   };
 
-  const totalDistance = currentLog.entries.reduce((acc, e) => acc + (e.distance || 0), 0);
+  // Calculate total distance - only use positive distances
+  const totalDistance = currentLog.entries.reduce((acc, e) => {
+    let entryDistance = 0;
+    if (e.distance && e.distance > 0) {
+      entryDistance = e.distance;
+    } else if (e.mileageStart !== null && e.mileageEnd !== null) {
+      entryDistance = Math.max(0, e.mileageEnd - e.mileageStart);
+    }
+    return acc + entryDistance;
+  }, 0);
 
   if (isLoading) {
     return (
@@ -143,6 +153,8 @@ const Index = () => {
           entries={currentLog.entries}
           fuelData={currentLog.fuelData}
           totalDistance={totalDistance}
+          startMileage={currentLog.startMileage}
+          endMileage={currentLog.endMileage}
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -239,6 +251,7 @@ const Index = () => {
             <FuelExpenseForm
               fuelData={currentLog.fuelData}
               totalDistance={totalDistance}
+              currentMonth={currentMonth}
               onSave={setFuelData}
             />
           </TabsContent>
@@ -276,6 +289,7 @@ const Index = () => {
                 setSelectedDay(d);
                 setActiveTab('jobs');
               }}
+              onDeleteDay={deleteDay}
             />
           </TabsContent>
 

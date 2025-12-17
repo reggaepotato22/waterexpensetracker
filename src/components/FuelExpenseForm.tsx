@@ -3,22 +3,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Fuel, Save } from 'lucide-react';
+import { Fuel, Save, Users } from 'lucide-react';
 import { FuelData } from '@/types/mileage';
 import { toast } from 'sonner';
+import { parse, format, isLastDayOfMonth } from 'date-fns';
 
 interface FuelExpenseFormProps {
   fuelData: FuelData;
   totalDistance: number;
+  currentMonth: string; // Format: "YYYY-MM"
   onSave: (data: FuelData) => void;
 }
 
-export const FuelExpenseForm = ({ fuelData, totalDistance, onSave }: FuelExpenseFormProps) => {
+export const FuelExpenseForm = ({ fuelData, totalDistance, currentMonth, onSave }: FuelExpenseFormProps) => {
   const [formData, setFormData] = useState<FuelData>(fuelData);
 
   useEffect(() => {
     setFormData(fuelData);
   }, [fuelData]);
+
+  // Check if today is the last day of the current month
+  const monthDate = parse(currentMonth, 'yyyy-MM', new Date());
+  const today = new Date();
+  const isCurrentMonth = format(today, 'yyyy-MM') === currentMonth;
+  const isLastDay = isCurrentMonth && isLastDayOfMonth(today);
 
   const handleChange = (field: keyof FuelData, value: string) => {
     setFormData(prev => ({
@@ -33,13 +41,15 @@ export const FuelExpenseForm = ({ fuelData, totalDistance, onSave }: FuelExpense
         ? (formData.dieselCost || 0) / formData.dieselAmount
         : 0;
     const usageCost = dieselUnitCost * calculatedLitersUsedDiesel;
+    const monthlySalary = formData.monthlySalary || 0;
     const netProfit =
       (formData.amountEarned || 0) -
       (usageCost +
         (formData.dieselCost || 0) +
         (formData.petrolCost || 0) +
         (formData.totalExpense || 0) +
-        (formData.otherCosts || 0));
+        (formData.otherCosts || 0) +
+        monthlySalary);
 
     const payload = {
       ...formData,
@@ -127,6 +137,35 @@ export const FuelExpenseForm = ({ fuelData, totalDistance, onSave }: FuelExpense
           </div>
         </div>
 
+        {/* Monthly Salary Input - Show on last day of month */}
+        {isLastDay && (
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <Label htmlFor="monthlySalary" className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                Monthly Salary (Two Lorry Drivers)
+              </Label>
+            </div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
+                KES
+              </span>
+              <Input
+                id="monthlySalary"
+                type="number"
+                step="0.01"
+                value={formData.monthlySalary || ''}
+                onChange={(e) => handleChange('monthlySalary', e.target.value)}
+                className="pl-12"
+                placeholder="Enter total monthly salary for both drivers"
+              />
+            </div>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+              Last day of the month - Enter the total monthly salary for both lorry drivers
+            </p>
+          </div>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-4 bg-muted rounded-lg text-center">
@@ -146,6 +185,15 @@ export const FuelExpenseForm = ({ fuelData, totalDistance, onSave }: FuelExpense
             <div className="text-xs text-muted-foreground">Amount Earned</div>
           </div>
         </div>
+
+        {formData.monthlySalary && formData.monthlySalary > 0 && (
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg text-center">
+            <div className="text-sm text-muted-foreground mb-1">Monthly Salary</div>
+            <div className="text-xl font-bold text-amber-700 dark:text-amber-300">
+              KES {formData.monthlySalary.toLocaleString()}
+            </div>
+          </div>
+        )}
 
         <Button onClick={handleSave} className="w-full">
           <Save className="w-4 h-4 mr-2" />

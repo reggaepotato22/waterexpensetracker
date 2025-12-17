@@ -41,6 +41,7 @@ export interface FuelData {
   otherCosts?: number | null;
   netProfit?: number | null;
   totalLitersUsedDiesel?: number | null;
+  monthlySalary?: number | null; // Monthly salary for two lorry drivers
 }
 
 export interface MonthlyLog {

@@ -2,12 +2,14 @@ import { useState } from "react";
 import { MonthlyLog, MileageEntry } from "@/types/mileage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, CalendarDays, MapPin, DollarSign, ClipboardList } from "lucide-react";
+import { ChevronDown, ChevronRight, CalendarDays, MapPin, DollarSign, ClipboardList, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { toast } from "sonner";
 
 interface MonthlyHistoryProps {
   logs: Record<string, MonthlyLog>;
   onSelectDay?: (monthKey: string, date: string) => void;
+  onDeleteDay?: (monthKey: string, date: string) => void;
 }
 
 interface DailyStats {
@@ -44,12 +46,22 @@ const buildDailyStats = (entries: MileageEntry[]): DailyStats[] => {
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
 };
 
-export const MonthlyHistory = ({ logs, onSelectDay }: MonthlyHistoryProps) => {
+export const MonthlyHistory = ({ logs, onSelectDay, onDeleteDay }: MonthlyHistoryProps) => {
   const [openMonth, setOpenMonth] = useState<string | null>(null);
 
   const sortedMonths = Object.values(logs).sort((a, b) =>
     a.month.localeCompare(b.month)
   );
+
+  const handleDeleteDay = (e: React.MouseEvent, monthKey: string, date: string) => {
+    e.stopPropagation();
+    if (onDeleteDay) {
+      if (confirm(`Are you sure you want to delete all entries for ${format(parseISO(date), "EEE, dd MMM yyyy")}?`)) {
+        onDeleteDay(monthKey, date);
+        toast.success(`Deleted entries for ${format(parseISO(date), "EEE, dd MMM yyyy")}`);
+      }
+    }
+  };
 
   if (sortedMonths.length === 0) {
     return (
@@ -64,9 +76,23 @@ export const MonthlyHistory = ({ logs, onSelectDay }: MonthlyHistoryProps) => {
   return (
     <div className="space-y-4">
       {sortedMonths.map((log) => {
-        const totalDistance =
-          log.totalDistance ||
-          log.entries.reduce((sum, e) => sum + (e.distance || 0), 0);
+        // Calculate total distance: endMileage - startMileage for the month
+        let totalDistance = 0;
+        if (log.startMileage !== null && log.endMileage !== null) {
+          totalDistance = Math.max(0, log.endMileage - log.startMileage);
+        } else {
+          // Fallback to sum of entry distances if mileage not set
+          totalDistance = log.entries.reduce((sum, e) => {
+            let entryDistance = 0;
+            if (e.distance && e.distance > 0) {
+              entryDistance = e.distance;
+            } else if (e.mileageStart !== null && e.mileageEnd !== null) {
+              entryDistance = Math.max(0, e.mileageEnd - e.mileageStart);
+            }
+            return sum + entryDistance;
+          }, 0);
+        }
+        
         const amountEarned =
           log.fuelData.amountEarned ??
           log.entries.reduce((sum, e) => sum + (e.amountPaid || 0), 0);
@@ -159,30 +185,61 @@ export const MonthlyHistory = ({ logs, onSelectDay }: MonthlyHistoryProps) => {
                           <th className="py-2 pr-4 font-semibold text-right">
                             Amount (KES)
                           </th>
+                          {onDeleteDay && (
+                            <th className="py-2 pr-4 font-semibold text-center">
+                              Actions
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
                         {dailyStats.map((d) => (
                           <tr
                             key={d.date}
-                            className="border-b border-border/40 last:border-0 hover:bg-card/60 cursor-pointer transition-colors"
-                            onClick={() => onSelectDay?.(log.month, d.date)}
+                            className="border-b border-border/40 last:border-0 hover:bg-card/60 transition-colors"
                           >
-                            <td className="py-1.5 pr-4 font-medium">
+                            <td 
+                              className="py-1.5 pr-4 font-medium cursor-pointer"
+                              onClick={() => onSelectDay?.(log.month, d.date)}
+                            >
                               {format(parseISO(d.date), "EEE, dd MMM")}
                             </td>
-                            <td className="py-1.5 pr-4 text-right">
+                            <td 
+                              className="py-1.5 pr-4 text-right cursor-pointer"
+                              onClick={() => onSelectDay?.(log.month, d.date)}
+                            >
                               {d.jobs}
                             </td>
-                            <td className="py-1.5 pr-4 text-right">
+                            <td 
+                              className="py-1.5 pr-4 text-right cursor-pointer"
+                              onClick={() => onSelectDay?.(log.month, d.date)}
+                            >
                               {d.paidJobs}
                             </td>
-                            <td className="py-1.5 pr-4 text-right">
+                            <td 
+                              className="py-1.5 pr-4 text-right cursor-pointer"
+                              onClick={() => onSelectDay?.(log.month, d.date)}
+                            >
                               {d.distance.toLocaleString()}
                             </td>
-                            <td className="py-1.5 pr-4 text-right font-mono">
+                            <td 
+                              className="py-1.5 pr-4 text-right font-mono cursor-pointer"
+                              onClick={() => onSelectDay?.(log.month, d.date)}
+                            >
                               {d.amount.toLocaleString()}
                             </td>
+                            {onDeleteDay && (
+                              <td className="py-1.5 pr-4 text-center">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={(e) => handleDeleteDay(e, log.month, d.date)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>

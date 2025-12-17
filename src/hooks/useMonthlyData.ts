@@ -23,6 +23,7 @@ const emptyFuelData: FuelData = {
   otherCosts: null,
   netProfit: null,
   totalLitersUsedDiesel: null,
+  monthlySalary: null,
 };
 
 const createEmptyLog = (monthKey: string): MonthlyLog => ({
@@ -164,6 +165,7 @@ export const useMonthlyData = () => {
             otherCosts: fuelDataRow.other_costs ?? null,
             netProfit: fuelDataRow.net_profit ?? null,
             totalLitersUsedDiesel: fuelDataRow.total_liters_used_diesel ?? null,
+            monthlySalary: fuelDataRow.monthly_salary ?? null,
           } : { ...emptyFuelData };
 
           const misdemeanors: Misdemeanor[] = (misData || []).map(m => ({
@@ -413,6 +415,72 @@ export const useMonthlyData = () => {
     }
   }, [currentLog, updateCurrentLog, user]);
 
+  const deleteDay = useCallback(async (monthKey: string, dateStr: string) => {
+    const log = monthlyLogs[monthKey];
+    if (!log) return;
+
+    // Filter out entries for the specified date
+    const filtered = log.entries.filter(e => {
+      const entryDate = e.date ? format(e.date, 'yyyy-MM-dd') : format(e.timestamp, 'yyyy-MM-dd');
+      return entryDate !== dateStr;
+    });
+
+    // Renumber jobs
+    const renumbered = filtered.map((e, i) => ({ ...e, jobNumber: i + 1 }));
+    
+    // Recalculate totals
+    const totalDistance = renumbered.reduce((sum, e) => {
+      let entryDistance = 0;
+      if (e.distance && e.distance > 0) {
+        entryDistance = e.distance;
+      } else if (e.mileageStart !== null && e.mileageEnd !== null) {
+        entryDistance = Math.max(0, e.mileageEnd - e.mileageStart);
+      }
+      return sum + entryDistance;
+    }, 0);
+    
+    const lastEntry = renumbered[renumbered.length - 1];
+    
+    // Update the log
+    setMonthlyLogs(prev => ({
+      ...prev,
+      [monthKey]: {
+        ...log,
+        entries: renumbered,
+        totalJobs: renumbered.length,
+        totalDistance,
+        endMileage: lastEntry?.mileageEnd || log.endMileage,
+      },
+    }));
+
+    // Delete from database
+    if (user) {
+      const entriesToDelete = log.entries.filter(e => {
+        const entryDate = e.date ? format(e.date, 'yyyy-MM-dd') : format(e.timestamp, 'yyyy-MM-dd');
+        return entryDate === dateStr;
+      });
+
+      for (const entry of entriesToDelete) {
+        if (entry.id && entry.id.length > 10) {
+          await supabase.from('job_entries').delete().eq('id', entry.id);
+        }
+      }
+
+      // Update monthly log totals in database
+      const logId = log.id;
+      if (logId && logId.length > 10) {
+        await supabase
+          .from('monthly_logs')
+          .update({
+            total_jobs: renumbered.length,
+            total_distance: totalDistance,
+            end_mileage: lastEntry?.mileageEnd || log.endMileage,
+          })
+          .eq('id', logId);
+      }
+    }
+  }, [monthlyLogs, user]);
+
   const clearEntries = useCallback(() => {
     updateCurrentLog({
       entries: [],
@@ -450,6 +518,7 @@ export const useMonthlyData = () => {
         other_costs: data.otherCosts,
         net_profit: data.netProfit,
         total_liters_used_diesel: data.totalLitersUsedDiesel,
+        monthly_salary: data.monthlySalary,
       };
 
       if (existing) {
@@ -582,6 +651,7 @@ export const useMonthlyData = () => {
     addEntry,
     updateEntry,
     deleteEntry,
+    deleteDay,
     clearEntries,
     setFuelData,
     addMisdemeanor,
