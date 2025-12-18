@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { parse, format, addDays, parseISO } from 'date-fns';
 import { LogOut, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { CSVDelivery } from '@/types/mileage';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -50,6 +51,7 @@ const Index = () => {
   const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
   const [showSettingsOnStartup, setShowSettingsOnStartup] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('jobs');
+  const [csvDeliveries, setCsvDeliveries] = useState<CSVDelivery[]>([]);
 
   useEffect(() => {
     const stored = localStorage.getItem('watertracker-hide-settings');
@@ -229,6 +231,7 @@ const Index = () => {
               }
               startMileage={currentLog.startMileage}
               waterFillSites={waterFillSites}
+              csvDeliveries={csvDeliveries}
               onAddEntry={(entry) => addEntry({
                 start: entry.start,
                 end: entry.end,
@@ -252,6 +255,7 @@ const Index = () => {
               fuelData={currentLog.fuelData}
               totalDistance={totalDistance}
               currentMonth={currentMonth}
+              selectedDay={selectedDay}
               onSave={setFuelData}
             />
           </TabsContent>
@@ -277,7 +281,13 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="compare" className="mt-6">
-            <CSVComparison entries={currentLog.entries} />
+            <CSVComparison 
+              entries={currentLog.entries} 
+              onCSVLoaded={(deliveries) => {
+                setCsvDeliveries(deliveries);
+                toast.success(`CSV loaded: ${deliveries.length} orders available for auto-fill`);
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="history" className="mt-6">
@@ -287,7 +297,7 @@ const Index = () => {
                 setCurrentMonth(monthKey);
                 const d = parseISO(dateStr);
                 setSelectedDay(d);
-                setActiveTab('jobs');
+                setActiveTab('fuel'); // Switch to fuel tab to enter fuel & expenses for that day
               }}
               onDeleteDay={deleteDay}
             />

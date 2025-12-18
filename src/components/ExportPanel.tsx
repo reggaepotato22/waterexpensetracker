@@ -238,115 +238,241 @@ const ExportPanel = ({ currentLog, currentMonth, waterFillSites }: ExportPanelPr
   const handleExportPDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    let yPos = 20;
     
-    // Title
-    doc.setFontSize(20);
-    doc.setTextColor(0, 150, 136);
-    doc.text(`Monthly Report - ${monthName}`, pageWidth / 2, 20, { align: 'center' });
-
-    // Summary section
-    doc.setFontSize(12);
-    doc.setTextColor(60, 60, 60);
-    let yPos = 35;
-
-    doc.text('Summary:', 14, yPos);
-    yPos += 8;
-    doc.setFontSize(10);
-    doc.text(`Start Mileage: ${currentLog.startMileage?.toLocaleString() || 'N/A'}`, 14, yPos);
-    yPos += 6;
-    doc.text(`End Mileage: ${currentLog.endMileage?.toLocaleString() || 'N/A'}`, 14, yPos);
-    yPos += 6;
-    const paidJobs = currentLog.entries.filter(e => (e.amountPaid || 0) > 0).length;
-    doc.text(`Total Jobs (paid): ${paidJobs}`, 14, yPos);
-    yPos += 6;
-    doc.text(`Total Distance: ${currentLog.totalDistance.toLocaleString()} km`, 14, yPos);
-    yPos += 6;
-    const totalEarnings = currentLog.entries.reduce((sum, e) => sum + (e.amountPaid || 0), 0);
-    doc.text(`Total Earnings: KES ${totalEarnings.toLocaleString()}`, 14, yPos);
-    yPos += 6;
-    const totalFuelCost = (currentLog.fuelData.dieselCost || 0) + (currentLog.fuelData.petrolCost || 0);
-    const netProfit = currentLog.fuelData.netProfit ??
-      totalEarnings - (totalFuelCost + (currentLog.fuelData.totalExpense || 0) + (currentLog.fuelData.otherCosts || 0));
-    doc.text(`Net Profit: KES ${netProfit.toLocaleString()}`, 14, yPos);
-    yPos += 12;
-
-    // Job Entries Table
-    if (currentLog.entries.length > 0) {
-      doc.setFontSize(12);
-      doc.text('Job Entries:', 14, yPos);
-      yPos += 4;
-
-      let runningTotal = 0;
-      const tableData = currentLog.entries.map(entry => {
-        runningTotal += entry.distance || 0;
-        return [
-          entry.jobNumber.toString(),
-          entry.orderNumber || '',
-          entry.start,
-          entry.end,
-          (entry.distance || 0).toString(),
-          `KES ${(entry.amountPaid || 0).toLocaleString()}`,
-        ];
-      });
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [['#', 'Order', 'Start', 'End', 'Dist.', 'Amount']],
-        body: tableData,
-        theme: 'striped',
-        headStyles: { fillColor: [0, 150, 136], textColor: 255 },
-        styles: { fontSize: 8, cellPadding: 2 },
-        columnStyles: {
-          0: { cellWidth: 12 },
-          5: { halign: 'right' },
-        },
-      });
-
-      yPos = (doc as any).lastAutoTable.finalY + 10;
-    }
-
-    // Fuel & Expenses
-    if (currentLog.fuelData) {
-      if (yPos > 250) {
+    // Helper function to add a new page if needed
+    const checkPageBreak = (requiredSpace: number) => {
+      if (yPos + requiredSpace > pageHeight - 20) {
         doc.addPage();
         yPos = 20;
       }
-      
-      doc.setFontSize(12);
-      doc.text('Fuel & Expenses:', 14, yPos);
-      yPos += 8;
-      doc.setFontSize(10);
-      
-      const fd = currentLog.fuelData;
-      const fuelLines = [
-        `Fuel C/F: ${fd.fuelCf || 0} L`,
-        `Diesel: ${fd.dieselAmount || 0} L / KES ${(fd.dieselCost || 0).toLocaleString()}`,
-        `Petrol: ${fd.petrolAmount || 0} L / KES ${(fd.petrolCost || 0).toLocaleString()}`,
-        `Fuel Consumption (km/L): ${fd.fuelConsumptionRate || 0}`,
-        `Total Liters Used - Diesel: ${fd.totalLitersUsedDiesel || fd.totalLitersUsed || 0} L`,
-        `Total Fuel Cost: KES ${(fd.totalCost || 0).toLocaleString()}`,
-        `Total Expense: KES ${(fd.totalExpense || 0).toLocaleString()}`,
-        `Other Costs: KES ${(fd.otherCosts || 0).toLocaleString()}`,
-        `Fuel Balance: ${fd.fuelBalance || 0} L`,
-        `Amount Earned: KES ${(fd.amountEarned || 0).toLocaleString()}`,
-        `Net Profit: KES ${(fd.netProfit || netProfit).toLocaleString()}`,
-      ];
+      return yPos;
+    };
 
-      fuelLines.forEach(line => {
-        doc.text(line, 14, yPos);
-        yPos += 6;
+    // Title with background color
+    doc.setFillColor(0, 150, 136);
+    doc.rect(0, 0, pageWidth, 30, 'F');
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Monthly Report - ${monthName}`, pageWidth / 2, 18, { align: 'center' });
+    
+    yPos = 40;
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'normal');
+
+    // Summary Box with border
+    doc.setDrawColor(0, 150, 136);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, yPos, pageWidth - (margin * 2), 50);
+    
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(0, 150, 136);
+    doc.text('SUMMARY', margin + 5, yPos + 8);
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(60, 60, 60);
+    let summaryY = yPos + 18;
+    
+    const startMileage = currentLog.startMileage?.toLocaleString() || 'N/A';
+    const endMileage = currentLog.endMileage?.toLocaleString() || 'N/A';
+    const paidJobs = currentLog.entries.filter(e => (e.amountPaid || 0) > 0).length;
+    const totalJobs = currentLog.entries.length;
+    const totalDistance = currentLog.totalDistance.toLocaleString();
+    const totalEarnings = currentLog.entries.reduce((sum, e) => sum + (e.amountPaid || 0), 0);
+    const totalFuelCost = (currentLog.fuelData.dieselCost || 0) + (currentLog.fuelData.petrolCost || 0);
+    const totalExpenses = totalFuelCost + (currentLog.fuelData.totalExpense || 0) + (currentLog.fuelData.otherCosts || 0);
+    const netProfit = currentLog.fuelData.netProfit ?? (totalEarnings - totalExpenses);
+
+    // Two column layout for summary
+    doc.text(`Start Mileage: ${startMileage}`, margin + 5, summaryY);
+    doc.text(`End Mileage: ${endMileage}`, pageWidth / 2 + 5, summaryY);
+    summaryY += 7;
+    
+    doc.text(`Total Jobs: ${totalJobs}`, margin + 5, summaryY);
+    doc.text(`Paid Jobs: ${paidJobs}`, pageWidth / 2 + 5, summaryY);
+    summaryY += 7;
+    
+    doc.text(`Total Distance: ${totalDistance} km`, margin + 5, summaryY);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(0, 150, 136);
+    doc.text(`Total Earnings: KES ${totalEarnings.toLocaleString()}`, pageWidth / 2 + 5, summaryY);
+    
+    yPos = summaryY + 15;
+
+    // Fuel & Expenses Section (moved to top)
+    yPos = checkPageBreak(80);
+    
+    doc.setDrawColor(0, 150, 136);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, yPos, pageWidth - (margin * 2), 70);
+    
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(0, 150, 136);
+    doc.text('FUEL & EXPENSES', margin + 5, yPos + 8);
+    
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(60, 60, 60);
+    let fuelY = yPos + 18;
+    
+    const fd = currentLog.fuelData;
+    const leftCol = margin + 5;
+    const rightCol = pageWidth / 2 + 5;
+    
+    // Two column layout
+    doc.text(`Fuel C/F: ${fd.fuelCf || 0} L`, leftCol, fuelY);
+    doc.text(`Diesel Amount: ${fd.dieselAmount || 0} L`, rightCol, fuelY);
+    fuelY += 6;
+    
+    doc.text(`Diesel Cost: KES ${(fd.dieselCost || 0).toLocaleString()}`, leftCol, fuelY);
+    doc.text(`Petrol Amount: ${fd.petrolAmount || 0} L`, rightCol, fuelY);
+    fuelY += 6;
+    
+    doc.text(`Petrol Cost: KES ${(fd.petrolCost || 0).toLocaleString()}`, leftCol, fuelY);
+    doc.text(`Fuel Consumption: ${fd.fuelConsumptionRate || 0} km/L`, rightCol, fuelY);
+    fuelY += 6;
+    
+    doc.text(`Total Liters Used: ${fd.totalLitersUsedDiesel || fd.totalLitersUsed || 0} L`, leftCol, fuelY);
+    doc.text(`Total Fuel Cost: KES ${(fd.totalCost || 0).toLocaleString()}`, rightCol, fuelY);
+    fuelY += 6;
+    
+    doc.text(`Total Expense: KES ${(fd.totalExpense || 0).toLocaleString()}`, leftCol, fuelY);
+    doc.text(`Other Costs: KES ${(fd.otherCosts || 0).toLocaleString()}`, rightCol, fuelY);
+    fuelY += 6;
+    
+    doc.text(`Fuel Balance: ${fd.fuelBalance || 0} L`, leftCol, fuelY);
+    doc.text(`Amount Earned: KES ${(fd.amountEarned || 0).toLocaleString()}`, rightCol, fuelY);
+    
+    yPos = fuelY + 15;
+
+    // Financial Summary Box (moved to top, right after Fuel & Expenses)
+    yPos = checkPageBreak(40);
+    
+    doc.setDrawColor(0, 150, 136);
+    doc.setLineWidth(1);
+    doc.setFillColor(240, 248, 247);
+    doc.rect(margin, yPos, pageWidth - (margin * 2), 35, 'FD');
+    
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(0, 150, 136);
+    doc.text('FINANCIAL SUMMARY', margin + 5, yPos + 10);
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(60, 60, 60);
+    let finY = yPos + 20;
+    
+    doc.text(`Total Earnings: KES ${totalEarnings.toLocaleString()}`, leftCol, finY);
+    doc.text(`Total Expenses: KES ${totalExpenses.toLocaleString()}`, rightCol, finY);
+    finY += 8;
+    
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(0, 150, 136);
+    doc.text(`Net Profit: KES ${netProfit.toLocaleString()}`, leftCol, finY);
+    
+    yPos = finY + 15;
+
+    // Job Entries Table (moved after Financial Summary)
+    if (currentLog.entries.length > 0) {
+      yPos = checkPageBreak(30);
+      
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(0, 150, 136);
+      doc.text('JOB ENTRIES', margin, yPos);
+      yPos += 8;
+
+      const tableData = currentLog.entries.map(entry => {
+        const distance = entry.distance || 0;
+        const amount = entry.amountPaid || 0;
+        return [
+          entry.jobNumber.toString(),
+          entry.orderNumber || '-',
+          entry.start || '-',
+          entry.end || '-',
+          entry.mileageStart?.toString() || '-',
+          entry.mileageEnd?.toString() || '-',
+          distance.toString(),
+          amount > 0 ? `KES ${amount.toLocaleString()}` : '-',
+          entry.isWaterFill ? 'Yes' : '',
+          entry.isParking ? 'Yes' : '',
+        ];
       });
+
+      // Add totals row
+      const totalRow = [
+        '',
+        'TOTAL',
+        '',
+        '',
+        '',
+        '',
+        totalDistance,
+        `KES ${totalEarnings.toLocaleString()}`,
+        '',
+        '',
+      ];
+      tableData.push(totalRow);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['#', 'Order #', 'Start', 'End', 'Mi. Start', 'Mi. End', 'Distance', 'Amount', 'Water', 'Park']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { 
+          fillColor: [0, 150, 136], 
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 9
+        },
+        bodyStyles: { fontSize: 8, cellPadding: 2 },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        columnStyles: {
+          0: { cellWidth: 12, halign: 'center' },
+          4: { cellWidth: 20, halign: 'right' },
+          5: { cellWidth: 20, halign: 'right' },
+          6: { cellWidth: 20, halign: 'right' },
+          7: { cellWidth: 30, halign: 'right' },
+          8: { cellWidth: 15, halign: 'center' },
+          9: { cellWidth: 15, halign: 'center' },
+        },
+        margin: { left: margin, right: margin },
+        didParseCell: (data: any) => {
+          // Style the totals row
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [240, 240, 240];
+            if (data.column.index === 1 || data.column.index === 6 || data.column.index === 7) {
+              data.cell.styles.textColor = [0, 150, 136];
+            }
+          }
+        },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 12;
     }
 
     // Water Fill Sites
     if (waterFillSites.length > 0) {
-      yPos += 6;
+      yPos = checkPageBreak(20);
       doc.setFontSize(12);
-      doc.text('Water Fill Sites:', 14, yPos);
-      yPos += 6;
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(0, 150, 136);
+      doc.text('Water Fill Sites:', margin, yPos);
+      yPos += 8;
       doc.setFontSize(10);
-      doc.text(waterFillSites.map(s => s.name).join(', '), 14, yPos);
-      yPos += 10;
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(60, 60, 60);
+      doc.text(waterFillSites.map(s => s.name).join(', '), margin, yPos);
+      yPos += 12;
     }
 
     // Misdemeanors

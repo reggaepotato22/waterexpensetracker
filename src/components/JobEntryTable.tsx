@@ -14,6 +14,7 @@ interface JobEntryTableProps {
   entries: MileageEntry[];
   startMileage: number | null;
   waterFillSites: WaterFillSite[];
+  csvDeliveries?: CSVDelivery[];
   onAddEntry: (entry: Omit<MileageEntry, 'id' | 'jobNumber' | 'timestamp' | 'status'>) => void;
   onUpdateEntry: (id: string, updates: Partial<MileageEntry>) => void;
   onDeleteEntry: (id: string) => void;
@@ -35,6 +36,7 @@ export const JobEntryTable = ({
   entries,
   startMileage,
   waterFillSites,
+  csvDeliveries = [],
   onAddEntry,
   onUpdateEntry,
   onDeleteEntry,
@@ -53,10 +55,12 @@ export const JobEntryTable = ({
   });
   const [monthStartMileage, setMonthStartMileage] = useState(startMileage?.toString() || '');
   const [csvComparisons, setCsvComparisons] = useState<CSVComparison[]>([]);
-  const [csvDeliveriesForAutofill, setCsvDeliveriesForAutofill] = useState<CSVDelivery[]>([]);
+  const [csvDeliveriesForAutofill, setCsvDeliveriesForAutofill] = useState<CSVDelivery[]>(csvDeliveries);
   const [showComparisonDialog, setShowComparisonDialog] = useState(false);
   const [showStartSuggestions, setShowStartSuggestions] = useState(false);
   const [showEndSuggestions, setShowEndSuggestions] = useState(false);
+  const [selectedStartIndex, setSelectedStartIndex] = useState(-1);
+  const [selectedEndIndex, setSelectedEndIndex] = useState(-1);
 
   const orderInputRef = useRef<HTMLInputElement | null>(null);
   const startInputRef = useRef<HTMLInputElement | null>(null);
@@ -102,6 +106,13 @@ export const JobEntryTable = ({
       }));
     }
   }, [entries]);
+
+  // Sync CSV deliveries from prop
+  useEffect(() => {
+    if (csvDeliveries.length > 0) {
+      setCsvDeliveriesForAutofill(csvDeliveries);
+    }
+  }, [csvDeliveries]);
 
   // Keep CSV comparison results in sync whenever entries or CSV deliveries change.
   useEffect(() => {
@@ -293,6 +304,9 @@ export const JobEntryTable = ({
 
       // Store CSV rows in memory for comparison and auto-fill
       setCsvDeliveriesForAutofill(csvDeliveries);
+      
+      // Also update parent component if needed (for CSVComparison component)
+      // This is handled by the parent through the csvDeliveries prop
 
       // Show a one-time toast based on initial comparison snapshot
       const initialComparisons: CSVComparison[] = [];
@@ -339,11 +353,161 @@ export const JobEntryTable = ({
     }
   };
 
+  const handleAutoFillOrderNumbers = () => {
+    if (!csvDeliveriesForAutofill.length) {
+      toast.error('No CSV data loaded. Please upload a CSV file first.');
+      return;
+    }
+
+    let filledCount = 0;
+    let updatedCount = 0;
+
+    entries.forEach(entry => {
+      // Skip if already has order number
+      if (entry.orderNumber) return;
+
+      // Try to match by amount paid
+      if (entry.amountPaid && entry.amountPaid > 0) {
+        const match = csvDeliveriesForAutofill.find(csv => 
+          Math.abs(csv.earning - entry.amountPaid!) < 0.01
+        );
+        
+        if (match) {
+          onUpdateEntry(entry.id, { 
+            orderNumber: match.orderNumber,
+            customer: match.customer || entry.customer
+          });
+          filledCount++;
+          updatedCount++;
+          return;
+        }
+      }
+
+      // Try to match by customer name in start/end locations
+      const locations = `${entry.start} ${entry.end}`.toLowerCase();
+      const match = csvDeliveriesForAutofill.find(csv => {
+        if (!csv.customer) return false;
+        const customerLower = csv.customer.toLowerCase();
+        return locations.includes(customerLower) || customerLower.includes(locations.trim());
+      });
+
+      if (match) {
+        onUpdateEntry(entry.id, { 
+          orderNumber: match.orderNumber,
+          customer: match.customer || entry.customer
+        });
+        filledCount++;
+        updatedCount++;
+      }
+    });
+
+    if (updatedCount > 0) {
+      toast.success(`Auto-filled ${updatedCount} order number(s) from CSV`);
+    } else {
+      toast.info('No matching entries found for auto-fill. Try matching by amount or customer name.');
+    }
+  };
+
   const selectPlace = (place: string, field: 'start' | 'end') => {
     setNewEntry(prev => ({ ...prev, [field]: place }));
-    if (field === 'start') setShowStartSuggestions(false);
-    if (field === 'end') setShowEndSuggestions(false);
+    if (field === 'start') {
+      setShowStartSuggestions(false);
+      setSelectedStartIndex(-1);
+    }
+    if (field === 'end') {
+      setShowEndSuggestions(false);
+      setSelectedEndIndex(-1);
+    }
   };
+
+  // Calculate dropdown position for fixed positioning
+  const getDropdownStyle = (inputRef: React.RefObject<HTMLInputElement>) => {
+    if (!inputRef.current) return {};
+    const rect = inputRef.current.getBoundingClientRect();
+    return {
+      position: 'fixed' as const,
+      top: `${rect.bottom + 4}px`,
+      left: `${rect.left}px`,
+      width: `${rect.width}px`,
+      zIndex: 99999,
+    };
+  };
+
+  // Handle keyboard navigation for suggestions
+  const handleSuggestionKeyDown = (
+    e: React.KeyboardEvent,
+    field: 'start' | 'end',
+    suggestions: string[]
+  ) => {
+    if (field === 'start') {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedStartIndex(prev => 
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedStartIndex(prev => prev > 0 ? prev - 1 : -1);
+      } else if (e.key === 'Enter' && selectedStartIndex >= 0) {
+        e.preventDefault();
+        selectPlace(suggestions[selectedStartIndex], 'start');
+        focusNextField('start');
+      } else if (e.key === 'Escape') {
+        setShowStartSuggestions(false);
+        setSelectedStartIndex(-1);
+      }
+    } else if (field === 'end') {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedEndIndex(prev => 
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedEndIndex(prev => prev > 0 ? prev - 1 : -1);
+      } else if (e.key === 'Enter' && selectedEndIndex >= 0) {
+        e.preventDefault();
+        selectPlace(suggestions[selectedEndIndex], 'end');
+        focusNextField('end');
+      } else if (e.key === 'Escape') {
+        setShowEndSuggestions(false);
+        setSelectedEndIndex(-1);
+      }
+    }
+  };
+
+  // Auto-detect parking keyword
+  const detectParking = (value: string) => {
+    const lowerValue = value.toLowerCase();
+    if (lowerValue.includes('parking') || lowerValue.includes('park')) {
+      setNewEntry(prev => ({ ...prev, isParking: true }));
+    }
+  };
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (selectedStartIndex >= 0 && startInputRef.current) {
+      const dropdown = document.querySelector('[data-start-dropdown]') as HTMLElement;
+      if (dropdown) {
+        const selectedButton = dropdown.children[selectedStartIndex] as HTMLElement;
+        if (selectedButton) {
+          selectedButton.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }
+    }
+  }, [selectedStartIndex]);
+
+  useEffect(() => {
+    if (selectedEndIndex >= 0 && endInputRef.current) {
+      const dropdown = document.querySelector('[data-end-dropdown]') as HTMLElement;
+      if (dropdown) {
+        const selectedButton = dropdown.children[selectedEndIndex] as HTMLElement;
+        if (selectedButton) {
+          selectedButton.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }
+    }
+  }, [selectedEndIndex]);
 
   const totalDistance = entries.reduce((sum, e) => sum + (e.distance || 0), 0);
   const totalAmount = entries.reduce((sum, e) => sum + (e.amountPaid || 0), 0);
@@ -351,14 +515,15 @@ export const JobEntryTable = ({
   const lastMileage = entries[entries.length - 1]?.mileageEnd || startMileage || 0;
 
   const getRowStyle = (entry: MileageEntry) => {
+    // Parking takes priority - highlight entire row
+    if (entry.isParking) {
+      return 'bg-amber-500/15 border-l-4 border-l-amber-400';
+    }
     if (entry.amountPaid && entry.amountPaid > 0) {
       return 'bg-success/15 border-l-4 border-l-success';
     }
     if (entry.isWaterFill) {
       return 'bg-cyan-500/15 border-l-4 border-l-cyan-400';
-    }
-    if (entry.isParking) {
-      return 'bg-amber-500/15 border-l-4 border-l-amber-400';
     }
     return '';
   };
@@ -372,17 +537,30 @@ export const JobEntryTable = ({
       <Card className="border-border bg-card">
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-xl font-semibold">Job Entries</CardTitle>
-          <label className="cursor-pointer">
-            <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
-            <Button variant="outline" size="sm" asChild>
-              <span className="gap-2">
-                <Upload className="w-4 h-4" />
-                Compare CSV
-              </span>
-            </Button>
-          </label>
+          <div className="flex items-center gap-2">
+            {csvDeliveriesForAutofill.length > 0 && (
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={handleAutoFillOrderNumbers}
+                className="gap-2"
+              >
+                <Check className="w-4 h-4" />
+                Auto-Fill Orders
+              </Button>
+            )}
+            <label className="cursor-pointer">
+              <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
+              <Button variant="outline" size="sm" asChild>
+                <span className="gap-2">
+                  <Upload className="w-4 h-4" />
+                  Compare CSV
+                </span>
+              </Button>
+            </label>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4 max-h-[70vh] overflow-y-auto">
+        <CardContent className="space-y-4 max-h-[70vh] overflow-y-auto overflow-x-visible">
           {/* Start Mileage */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-muted rounded-lg">
             <span className="font-medium text-foreground min-w-fit">Start Mileage:</span>
@@ -397,7 +575,7 @@ export const JobEntryTable = ({
           </div>
 
           {/* Entries Table */}
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <div className="overflow-x-auto overflow-y-visible rounded-lg border border-border">
             <Table className="min-w-[900px] text-sm">
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -441,7 +619,15 @@ export const JobEntryTable = ({
                           value={entry.start}
                           onChange={(e) => {
                             const value = e.target.value;
-                            onUpdateEntry(entry.id, { start: value });
+                            const updates: Partial<MileageEntry> = { start: value };
+
+                            // Auto-detect parking
+                            const lowerValue = value.toLowerCase();
+                            if (lowerValue.includes('parking') || lowerValue.includes('park')) {
+                              updates.isParking = true;
+                            }
+
+                            onUpdateEntry(entry.id, updates);
 
                             // When user types the customer location in Start,
                             // try to auto-fill order number for paid jobs.
@@ -467,7 +653,15 @@ export const JobEntryTable = ({
                           value={entry.end}
                           onChange={(e) => {
                             const value = e.target.value;
-                            onUpdateEntry(entry.id, { end: value });
+                            const updates: Partial<MileageEntry> = { end: value };
+
+                            // Auto-detect parking
+                            const lowerValue = value.toLowerCase();
+                            if (lowerValue.includes('parking') || lowerValue.includes('park')) {
+                              updates.isParking = true;
+                            }
+
+                            onUpdateEntry(entry.id, updates);
 
                             // Also support matching on End location
                             if (!csvDeliveriesForAutofill.length) return;
@@ -580,29 +774,58 @@ export const JobEntryTable = ({
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="relative">
+                    <div className="relative z-10">
                       <Input
                         ref={startInputRef}
                         placeholder="Start location"
                         value={newEntry.start}
-                        onChange={(e) => setNewEntry(prev => ({ ...prev, start: e.target.value }))}
-                        onFocus={() => setShowStartSuggestions(true)}
-                        onBlur={() => {
-                          setTimeout(() => setShowStartSuggestions(false), 150);
-                          if (!newEntry.start && filteredStartPlaces.length > 0) {
-                            setNewEntry(prev => ({ ...prev, start: filteredStartPlaces[0] }));
-                          }
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setNewEntry(prev => ({ ...prev, start: value }));
+                          setSelectedStartIndex(-1);
+                          detectParking(value);
                         }}
-                        onKeyDown={handleKeyDown('start')}
+                        onFocus={() => {
+                          setShowStartSuggestions(true);
+                          setSelectedStartIndex(-1);
+                        }}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setShowStartSuggestions(false);
+                            setSelectedStartIndex(-1);
+                            if (!newEntry.start && filteredStartPlaces.length > 0) {
+                              setNewEntry(prev => ({ ...prev, start: filteredStartPlaces[0] }));
+                            }
+                          }, 150);
+                        }}
+                        onKeyDown={(e) => {
+                          if (showStartSuggestions && filteredStartPlaces.length > 0) {
+                            handleSuggestionKeyDown(e, 'start', filteredStartPlaces.slice(0, 5));
+                            if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
+                              return;
+                            }
+                          }
+                          handleKeyDown('start')(e);
+                        }}
                         className="h-11 text-base sm:text-sm sm:text-base min-w-[140px]"
                       />
                       {showStartSuggestions && filteredStartPlaces.length > 0 && newEntry.start && (
-                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                          {filteredStartPlaces.slice(0, 5).map(place => (
+                        <div 
+                          data-start-dropdown
+                          className="fixed bg-popover border border-border rounded-md shadow-2xl max-h-60 overflow-y-auto"
+                          style={getDropdownStyle(startInputRef)}
+                        >
+                          {filteredStartPlaces.slice(0, 5).map((place, index) => (
                             <button
                               key={place}
                               onClick={() => selectPlace(place, 'start')}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onMouseEnter={() => setSelectedStartIndex(index)}
+                              className={`w-full px-3 py-2 text-left text-sm ${
+                                selectedStartIndex === index 
+                                  ? 'bg-primary text-primary-foreground' 
+                                  : 'hover:bg-muted'
+                              }`}
                             >
                               {place}
                             </button>
@@ -612,29 +835,58 @@ export const JobEntryTable = ({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="relative">
+                    <div className="relative z-10">
                       <Input
                         ref={endInputRef}
                         placeholder="End location"
                         value={newEntry.end}
-                        onChange={(e) => setNewEntry(prev => ({ ...prev, end: e.target.value }))}
-                        onFocus={() => setShowEndSuggestions(true)}
-                        onBlur={() => {
-                          setTimeout(() => setShowEndSuggestions(false), 150);
-                          if (!newEntry.end && filteredEndPlaces.length > 0) {
-                            setNewEntry(prev => ({ ...prev, end: filteredEndPlaces[0] }));
-                          }
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setNewEntry(prev => ({ ...prev, end: value }));
+                          setSelectedEndIndex(-1);
+                          detectParking(value);
                         }}
-                        onKeyDown={handleKeyDown('end')}
+                        onFocus={() => {
+                          setShowEndSuggestions(true);
+                          setSelectedEndIndex(-1);
+                        }}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setShowEndSuggestions(false);
+                            setSelectedEndIndex(-1);
+                            if (!newEntry.end && filteredEndPlaces.length > 0) {
+                              setNewEntry(prev => ({ ...prev, end: filteredEndPlaces[0] }));
+                            }
+                          }, 150);
+                        }}
+                        onKeyDown={(e) => {
+                          if (showEndSuggestions && filteredEndPlaces.length > 0) {
+                            handleSuggestionKeyDown(e, 'end', filteredEndPlaces.slice(0, 5));
+                            if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
+                              return;
+                            }
+                          }
+                          handleKeyDown('end')(e);
+                        }}
                         className="h-11 text-base sm:text-sm sm:text-base min-w-[140px]"
                       />
                       {showEndSuggestions && filteredEndPlaces.length > 0 && newEntry.end && (
-                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                          {filteredEndPlaces.slice(0, 5).map(place => (
+                        <div 
+                          data-end-dropdown
+                          className="fixed bg-popover border border-border rounded-md shadow-2xl max-h-60 overflow-y-auto"
+                          style={getDropdownStyle(endInputRef)}
+                        >
+                          {filteredEndPlaces.slice(0, 5).map((place, index) => (
                             <button
                               key={place}
                               onClick={() => selectPlace(place, 'end')}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onMouseEnter={() => setSelectedEndIndex(index)}
+                              className={`w-full px-3 py-2 text-left text-sm ${
+                                selectedEndIndex === index 
+                                  ? 'bg-primary text-primary-foreground' 
+                                  : 'hover:bg-muted'
+                              }`}
                             >
                               {place}
                             </button>
